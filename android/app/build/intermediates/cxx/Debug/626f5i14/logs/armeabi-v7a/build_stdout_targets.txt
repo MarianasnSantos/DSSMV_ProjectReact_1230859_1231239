@@ -1,0 +1,15 @@
+ninja: Entering directory `C:\android\projectos\ProjectReact\ProjectReact\android\app\.cxx\Debug\626f5i14\armeabi-v7a'
+[0/2] Re-checking globbed directories...
+[1/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/1138db8b1dfe93ec333d881b23f8252b/components/safeareacontext/States.cpp.o
+[2/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/1138db8b1dfe93ec333d881b23f8252b/components/safeareacontext/EventEmitters.cpp.o
+[3/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/238244dd9ad6341a4ed5ec9a933e6f64/codegen/jni/safeareacontext-generated.cpp.o
+[4/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/128241d4f6390de6f40349be06b1b75c/safeareacontextJSI-generated.cpp.o
+[5/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/1138db8b1dfe93ec333d881b23f8252b/components/safeareacontext/ShadowNodes.cpp.o
+[6/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/d4707c28846cc0c77bd700c4fa70740e/safeareacontext/RNCSafeAreaViewState.cpp.o
+[7/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/1138db8b1dfe93ec333d881b23f8252b/components/safeareacontext/Props.cpp.o
+[8/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/ae4aacc1d9667d08d7e0cd5fcb20e5ae/safeareacontext/ComponentDescriptors.cpp.o
+[9/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/1e2d4ef89fab79dee18fe13bb2b96c92/RNCSafeAreaViewShadowNode.cpp.o
+[10/13] Linking CXX shared library C:\android\projectos\ProjectReact\ProjectReact\android\app\build\intermediates\cxx\Debug\626f5i14\obj\armeabi-v7a\libreact_codegen_safeareacontext.so
+[11/13] Building CXX object CMakeFiles/appmodules.dir/C_/android/projectos/ProjectReact/ProjectReact/android/app/build/generated/autolinking/src/main/jni/autolinking.cpp.o
+[12/13] Building CXX object CMakeFiles/appmodules.dir/OnLoad.cpp.o
+[13/13] Linking CXX shared library C:\android\projectos\ProjectReact\ProjectReact\android\app\build\intermediates\cxx\Debug\626f5i14\obj\armeabi-v7a\libappmodules.so

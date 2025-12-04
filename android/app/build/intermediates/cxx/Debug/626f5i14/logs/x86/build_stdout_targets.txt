@@ -1,0 +1,15 @@
+ninja: Entering directory `C:\android\projectos\ProjectReact\ProjectReact\android\app\.cxx\Debug\626f5i14\x86'
+[0/2] Re-checking globbed directories...
+[1/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/77b203ef67ff33359537e8cfc6e861c2/react/renderer/components/safeareacontext/States.cpp.o
+[2/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/1138db8b1dfe93ec333d881b23f8252b/components/safeareacontext/EventEmitters.cpp.o
+[3/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/ae4aacc1d9667d08d7e0cd5fcb20e5ae/safeareacontext/safeareacontextJSI-generated.cpp.o
+[4/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/3b7d5cd8f84f450024ce5bb57319e285/components/safeareacontext/RNCSafeAreaViewState.cpp.o
+[5/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/bcc02b34786915cacd9b74e429114c38/renderer/components/safeareacontext/ShadowNodes.cpp.o
+[6/13] Building CXX object CMakeFiles/appmodules.dir/OnLoad.cpp.o
+[7/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/77b203ef67ff33359537e8cfc6e861c2/react/renderer/components/safeareacontext/Props.cpp.o
+[8/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/1138db8b1dfe93ec333d881b23f8252b/components/safeareacontext/ComponentDescriptors.cpp.o
+[9/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/d4707c28846cc0c77bd700c4fa70740e/safeareacontext/RNCSafeAreaViewShadowNode.cpp.o
+[10/13] Building CXX object CMakeFiles/appmodules.dir/C_/android/projectos/ProjectReact/ProjectReact/android/app/build/generated/autolinking/src/main/jni/autolinking.cpp.o
+[11/13] Building CXX object safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/0527922a1fff1305e7361f4757bca690/source/codegen/jni/safeareacontext-generated.cpp.o
+[12/13] Linking CXX shared library C:\android\projectos\ProjectReact\ProjectReact\android\app\build\intermediates\cxx\Debug\626f5i14\obj\x86\libreact_codegen_safeareacontext.so
+[13/13] Linking CXX shared library C:\android\projectos\ProjectReact\ProjectReact\android\app\build\intermediates\cxx\Debug\626f5i14\obj\x86\libappmodules.so
