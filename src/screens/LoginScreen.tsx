@@ -1,48 +1,43 @@
-// src/screens/LoginScreen.tsx
-
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet, // <-- CORREÇÃO 1: Importar StyleSheet
-    Alert,
-    ActivityIndicator // Adicionado para UX
-} from 'react-native';
-
-import { User } from '../model/User'; // <-- CORREÇÃO 2: Usa 'model' (singular)
-import { loginUser } from '../services/UserService';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { User } from '../model/User';
+// ✅ Importa a função de autenticação real do seu serviço
+import { authenticateUser } from '../services/AuthService';
 
 interface LoginScreenProps {
+    /** Função chamada após o login ser bem-sucedido, passando o objeto de utilizador. */
     onLoginSuccess: (user: User) => void;
+    /** Função para navegar para a tela de Registo. */
+    onNavigateToRegister: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
+    // Estado apenas para o username
     const [username, setUsername] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = async () => {
-        if (!username.trim()) {
-            Alert.alert('Erro', 'Por favor, insira o nome de utilizador.');
+        if (!username) {
+            Alert.alert('Erro', 'Por favor, preencha o nome de utilizador.');
             return;
         }
 
         setIsLoading(true);
-
         try {
-            // Chama o serviço apenas com o username
-            const user = await loginUser(username);
+            // ✅ Chama o serviço para verificar se o utilizador existe
+            const user = await authenticateUser(username);
 
             if (user) {
+                // Sucesso! Chama o callback que está no App.tsx para mudar o estado
                 onLoginSuccess(user);
             } else {
-                // Falha no login (usuário não encontrado)
-                Alert.alert('Erro', 'Nome de utilizador não encontrado. Tente novamente.');
+                // Utilizador não encontrado na base de dados
+                Alert.alert('Erro de Login', 'Nome de utilizador inválido ou não registado.');
             }
-        } catch (error) {
-            // Erro de rede/API
-            Alert.alert('Erro', 'Falha na comunicação com o servidor. Verifique sua conexão.');
+        } catch (error: any) {
+            // Erro de comunicação ou erro HTTP
+            console.error("Erro no login:", error);
+            Alert.alert('Erro de Conexão', error.message || 'Não foi possível conectar-se ao servidor.');
         } finally {
             setIsLoading(false);
         }
@@ -50,16 +45,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>🐾 Bem-vindo ao Pet Match!</Text>
+            <Text style={styles.title}>Bem-vindo! 🐾</Text>
+            <Text style={styles.subtitle}>Faça login para continuar</Text>
 
             <TextInput
                 style={styles.input}
                 placeholder="Nome de Utilizador"
-                placeholderTextColor="#666"
+                keyboardType="default"
+                autoCapitalize="none"
                 value={username}
                 onChangeText={setUsername}
-                autoCapitalize="none"
-                editable={!isLoading} // Desabilita o input durante o carregamento
             />
 
             <TouchableOpacity
@@ -74,51 +69,67 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 )}
             </TouchableOpacity>
 
+            <TouchableOpacity
+                style={styles.linkButton}
+                onPress={onNavigateToRegister}
+            >
+                <Text style={styles.linkText}>Não tem conta? Registe-se</Text>
+            </TouchableOpacity>
         </View>
     );
 };
-
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'center',
-        padding: 30,
-        backgroundColor: '#f8f8f8',
+        padding: 20,
+        backgroundColor: '#f5f5f5',
     },
     title: {
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: 'bold',
+        marginBottom: 8,
         textAlign: 'center',
-        marginBottom: 50,
-        color: '#f3b4b4', // Cor de destaque para o Pet Match
+        color: '#333',
+    },
+    subtitle: {
+        fontSize: 18,
+        marginBottom: 40,
+        textAlign: 'center',
+        color: '#666',
     },
     input: {
         height: 50,
         borderColor: '#ddd',
         borderWidth: 1,
-        borderRadius: 10,
+        borderRadius: 8,
         paddingHorizontal: 15,
-        marginBottom: 20,
+        marginBottom: 15,
         backgroundColor: '#fff',
-        fontSize: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 1,
-        elevation: 2,
     },
     button: {
-        backgroundColor: '#f3b4b4', // Cor do botão
+        backgroundColor: '#f3b4b4',
         padding: 15,
-        borderRadius: 10,
+        borderRadius: 8,
         alignItems: 'center',
-        marginTop: 10,
+        marginBottom: 20,
+        height: 50,
+        justifyContent: 'center',
     },
     buttonText: {
         color: '#fff',
         fontSize: 18,
-        fontWeight: '600',
+        fontWeight: 'bold',
+    },
+    linkButton: {
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    linkText: {
+        color: '#f3b4b4',
+        fontSize: 16,
+        textDecorationLine: 'underline',
     },
 });
 

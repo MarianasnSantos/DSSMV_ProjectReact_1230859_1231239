@@ -10,19 +10,23 @@ import {
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-// Importe a tela de Login (View) e o Modelo de Usuário (Model)
-import LoginScreen from './src/screens/LoginScreen';
+// Importação crucial para usar a navegação
+import { NavigationContainer } from '@react-navigation/native';
+import AuthNavigator from './src/navigation/AuthNavigator';
+import MainNavigator from './src/navigation/MainNavigator';
+
+// Importe apenas o Modelo de Usuário (Model)
+// 🚨 Remova esta linha: import LoginScreen from './src/screens/LoginScreen';
 import { User } from './src/model/User';
 
 const App: React.FC = () => {
     // 1. Estados para gerenciar a autenticação e o usuário
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [currentUser, setCurrentUser] = useState<User | null>(null); // Tipado com a interface User
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
     const isDarkMode = useColorScheme() === 'dark';
 
     // 2. Função de callback (Controller)
-    // É chamada pelo LoginScreen ao fazer o login com sucesso
     const handleSuccessfulLogin = (user: User) => {
         setCurrentUser(user);
         setIsLoggedIn(true);
@@ -41,14 +45,19 @@ const App: React.FC = () => {
 
     return (
         <SafeAreaProvider>
-            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-            {/* 3. Renderização Condicional (O coração do Controller de autenticação) */}
-            {isLoggedIn ? (
-                <MainAppContent />
-            ) : (
-                // Passa a função de callback para o LoginScreen
-                <LoginScreen onLoginSuccess={handleSuccessfulLogin} />
-            )}
+            <StatusBar barStyle={isDarkMode ? 'dark-content' : 'dark-content'} />
+
+            {/* ⭐️ 1. Envolve a aplicação com o container de navegação */}
+            <NavigationContainer>
+                {/* 2. Renderização Condicional (O coração do Controller de autenticação) */}
+                {isLoggedIn ? (
+                    <MainAppContent />
+                ) : (
+                    // ⭐️ 3. Usa o AuthNavigator, que se encarrega de renderizar o LoginScreen
+                    // e passar todas as props (incluindo onNavigateToRegister internamente).
+                    <AuthNavigator onLoginSuccess={handleSuccessfulLogin} />
+                )}
+            </NavigationContainer>
         </SafeAreaProvider>
     );
 };
