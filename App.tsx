@@ -15,6 +15,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import MainNavigator from './src/navigation/MainNavigator';
 
+
 // Importe apenas o Modelo de Usuário (Model)
 // 🚨 Remova esta linha: import LoginScreen from './src/screens/LoginScreen';
 import { User } from './src/model/User';
@@ -51,7 +52,7 @@ const App: React.FC = () => {
             <NavigationContainer>
                 {/* 2. Renderização Condicional (O coração do Controller de autenticação) */}
                 {isLoggedIn ? (
-                    <MainAppContent />
+                    <MainNavigator/>
                 ) : (
                     // ⭐️ 3. Usa o AuthNavigator, que se encarrega de renderizar o LoginScreen
                     // e passar todas as props (incluindo onNavigateToRegister internamente).
