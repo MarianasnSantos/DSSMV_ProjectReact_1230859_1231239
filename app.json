@@ -1,4 +1,34 @@
 {
-  "name": "ProjectReact",
-  "displayName": "ProjectReact"
+  "expo": {
+    "name": "ProjectReact",
+    "slug": "ProjectReact",
+    "orientation": "portrait",
+    "icon": "./src/assets/PetMatch.png",
+
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./src/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.seu.projectreact",
+      "adaptiveIcon": {
+
+        "foregroundImage": "./src/assets/PetMatch.png",
+
+        "backgroundColor": "#FEEBEB"
+      }
+    },
+    "web": {
+      "favicon": "./src/assets/favicon.png"
+    }
+  },
+  "name": "ProjectReact"
 }
