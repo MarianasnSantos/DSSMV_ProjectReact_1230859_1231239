@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-// Tipagem de navegação para o MainNavigator
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MainStackParamList } from '../navigation/MainNavigator'; // Importa a tipagem das rotas
+import { MainStackParamList } from '../navigation/MainNavigator';
 
-// Definindo as props que este ecrã recebe do MainNavigator
+// Tipagem das props de navegação
 type OpcoesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Opcoes'>;
 
 interface OpcoesScreenProps {
@@ -17,22 +16,22 @@ const OpcoesScreen: React.FC<OpcoesScreenProps> = ({ navigation }) => {
             <Text style={styles.title}>O que deseja fazer? 🐾</Text>
             <Text style={styles.subtitle}>Escolha o seu destino na PetMatch.</Text>
 
-            {/* Opção 1: Módulo de Adoção (CRUD de Pets) */}
+            {/* Opção 1: Feed de Animais para Adoção */}
             <TouchableOpacity
                 style={[styles.button, styles.adoptionButton]}
-                onPress={() => navigation.navigate('PetList')} // ✅ Rota para a lista de animais
+                onPress={() => navigation.navigate('PetList')}   // 👉 Agora abre AnimalsFeedScreen
             >
                 <Text style={styles.buttonText}>🐶 Ver Animais para Adoção</Text>
-                <Text style={styles.buttonSubText}>Pesquise, filtre e adote o seu novo amigo.</Text>
+                <Text style={styles.buttonSubText}>Conheça os patudos à espera de um lar.</Text>
             </TouchableOpacity>
 
-            {/* Opção 2: Módulo de Comunidade (CRUD de Posts) */}
+            {/* Opção 2: Comunidade */}
             <TouchableOpacity
                 style={[styles.button, styles.forumButton]}
-                onPress={() => navigation.navigate('ForumFeed')} // ✅ Rota para o Fórum
+                onPress={() => navigation.navigate('ForumFeed')}
             >
                 <Text style={styles.buttonText}>💬 Comunidade e Partilha</Text>
-                <Text style={styles.buttonSubText}>Partilhe informações e converse com outros tutores.</Text>
+                <Text style={styles.buttonSubText}>Partilhe dicas e converse com outros tutores.</Text>
             </TouchableOpacity>
         </View>
     );
@@ -69,10 +68,10 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     adoptionButton: {
-        backgroundColor: '#f3b4b4', // Rosa mais escuro (cor PetMatch)
+        backgroundColor: '#f3b4b4',
     },
     forumButton: {
-        backgroundColor: '#9be3ff', // Azul suave (cor de contraste para o fórum)
+        backgroundColor: '#9be3ff',
     },
     buttonText: {
         fontSize: 20,

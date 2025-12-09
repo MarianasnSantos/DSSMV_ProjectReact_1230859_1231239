@@ -179,6 +179,10 @@ fix_*.patch
 # [Experimental] Generated TS type definitions
 /packages/**/types_generated/
 
+# React Native / Android
+android/.gradle/
+android/app/build/
+android/build/
 
 
 
