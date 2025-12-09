@@ -1,21 +1,22 @@
+// src/screens/AnimalsFeedScreen.tsx
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, Image, ActivityIndicator, StyleSheet } from "react-native";
-import { buscarAnimais, Animal } from "../API/rescueGroups";
+import { buscarCachorros, Dog } from "../API/theDogAPI";
 
 export default function AnimalsFeedScreen() {
-    const [animals, setAnimals] = useState<Animal[]>([]);
+    const [dogs, setDogs] = useState<Dog[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function load() {
             try {
-                const result = await buscarAnimais();
-                if (result && result.length > 0) setAnimals(result);
-                else setError("Não foi possível carregar os animais.");
+                const result = await buscarCachorros();
+                if (result) setDogs(result);
+                else setError("Não foi possível carregar os cachorros.");
             } catch (err) {
                 console.error("Erro no feed:", err);
-                setError("Erro ao buscar animais.");
+                setError("Erro ao buscar cachorros.");
             } finally {
                 setLoading(false);
             }
@@ -39,19 +40,17 @@ export default function AnimalsFeedScreen() {
     return (
         <View style={styles.container}>
             <FlatList
-                data={animals}
+                data={dogs}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => {
-                    const photo =
-                        item?.attributes?.pictures?.[0]?.original?.url ||
-                        "https://placehold.co/300x200";
-
+                    const photo = item.image?.url || "https://placehold.co/300x200";
                     return (
                         <View style={styles.card}>
                             <Image source={{ uri: photo }} style={styles.image} resizeMode="cover" />
                             <View style={styles.info}>
-                                <Text style={styles.name}>{item.attributes.name}</Text>
-                                <Text style={styles.breed}>{item.attributes.speciesName}</Text>
+                                <Text style={styles.name}>{item.name}</Text>
+                                {item.temperament && <Text style={styles.breed}>{item.temperament}</Text>}
+                                {item.life_span && <Text style={styles.breed}>Vida: {item.life_span}</Text>}
                             </View>
                         </View>
                     );
@@ -69,8 +68,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         borderRadius: 15,
         overflow: "hidden",
-        elevation: 3, // sombra Android
-        shadowColor: "#000", // sombra iOS
+        elevation: 3,
+        shadowColor: "#000",
         shadowOpacity: 0.1,
         shadowOffset: { width: 0, height: 2 },
     },
@@ -79,3 +78,4 @@ const styles = StyleSheet.create({
     name: { fontSize: 22, fontWeight: "bold", color: "#333" },
     breed: { fontSize: 16, color: "#666", marginTop: 5 },
 });
+
