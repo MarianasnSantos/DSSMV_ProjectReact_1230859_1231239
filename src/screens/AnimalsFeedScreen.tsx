@@ -11,7 +11,7 @@ export default function AnimalsFeedScreen() {
         async function load() {
             try {
                 const result = await buscarAnimais();
-                if (result) setAnimals(result);
+                if (result && result.length > 0) setAnimals(result);
                 else setError("Não foi possível carregar os animais.");
             } catch (err) {
                 console.error("Erro no feed:", err);
