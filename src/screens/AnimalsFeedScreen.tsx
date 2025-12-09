@@ -1,28 +1,43 @@
+
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, Image, ActivityIndicator, StyleSheet } from "react-native";
-import { buscarAnimais, Animal } from "../API/rescueGroups";
+// IMPORTANTE: Importar a Action para disparar o fluxo e o Store para obter dados
+import { PetActions } from "../actions/PetActions";
+import PetStore from "../stores/PetStore";
+import { Animal } from "../API/rescueGroups"; // O tipo Animal continua sendo necessário
 
-export default function AnimalsFeedScreen() {
-    const [animals, setAnimals] = useState<Animal[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+// Hook Customizado para integração com o Store
+function usePetStoreState() {
+    // Inicializa o estado local com o estado atual do Store
+    const [state, setState] = useState(PetStore.getState());
 
     useEffect(() => {
-        async function load() {
-            try {
-                const result = await buscarAnimais();
-                if (result && result.length > 0) setAnimals(result);
-                else setError("Não foi possível carregar os animais.");
-            } catch (err) {
-                console.error("Erro no feed:", err);
-                setError("Erro ao buscar animais.");
-            } finally {
-                setLoading(false);
-            }
-        }
+        const handleChange = () => {
+            // Quando o Store muda, atualiza o estado do componente
+            setState(PetStore.getState());
+        };
 
-        load();
+        // Assina o evento 'change' do Store
+        PetStore.addChangeListener(handleChange);
+
+        // Função de limpeza: Desassina o evento ao desmontar o componente
+        return () => {
+            PetStore.removeChangeListener(handleChange);
+        };
     }, []);
+
+    return state;
+}
+
+export default function AnimalsFeedScreen() {
+    // Usa o hook para obter o estado do Store (loading, error, animals)
+    const { animals, loading, error } = usePetStoreState();
+
+    useEffect(() => {
+        // Dispara a AÇÃO para iniciar o fluxo de busca, uma única vez
+        // A View NÃO espera um retorno de dados, ela espera que o Store mude.
+        PetActions.loadAnimals();
+    }, []); // Array vazio garante que só roda na montagem
 
     if (loading) {
         return <ActivityIndicator size="large" color="#e91e63" style={styles.loader} />;
@@ -36,6 +51,7 @@ export default function AnimalsFeedScreen() {
         );
     }
 
+    // A renderização abaixo permanece inalterada, pois usa o estado (animals)
     return (
         <View style={styles.container}>
             <FlatList
@@ -61,6 +77,7 @@ export default function AnimalsFeedScreen() {
     );
 }
 
+// ... (styles permanecem os mesmos)
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#f2f2f2" },
     loader: { flex: 1, justifyContent: "center" },
@@ -69,8 +86,8 @@ const styles = StyleSheet.create({
         backgroundColor: "#fff",
         borderRadius: 15,
         overflow: "hidden",
-        elevation: 3, // sombra Android
-        shadowColor: "#000", // sombra iOS
+        elevation: 3,
+        shadowColor: "#000",
         shadowOpacity: 0.1,
         shadowOffset: { width: 0, height: 2 },
     },
