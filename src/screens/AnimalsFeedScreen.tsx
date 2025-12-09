@@ -1,96 +1,81 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, Image, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from "react";
+import { View, Text, FlatList, Image, ActivityIndicator, StyleSheet } from "react-native";
+import { buscarAnimais, Animal } from "../API/rescueGroups";
 
-const AnimalsFeedScreen = () => {
-    const [animals, setAnimals] = useState<any[]>([]);
+export default function AnimalsFeedScreen() {
+    const [animals, setAnimals] = useState<Animal[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchAnimals = async () => {
+        async function load() {
             try {
-                const response = await fetch('https://api.rescuegroups.org/v5/public/animals/search', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'apiKey AQUI_TUA_CHAVE'
-                    },
-                    body: JSON.stringify({
-                        data: {
-                            type: "animals",
-                            attributes: {
-                                status: "Available",
-                                species: "Dog"
-                            }
-                        }
-                    })
-                });
-
-                const json = await response.json();
-                setAnimals(json.data || []);
-            } catch (error) {
-                console.error(error);
+                const result = await buscarAnimais();
+                if (result) setAnimals(result);
+                else setError("Não foi possível carregar os animais.");
+            } catch (err) {
+                console.error("Erro no feed:", err);
+                setError("Erro ao buscar animais.");
             } finally {
                 setLoading(false);
             }
-        };
+        }
 
-        fetchAnimals();
+        load();
     }, []);
 
     if (loading) {
+        return <ActivityIndicator size="large" color="#e91e63" style={styles.loader} />;
+    }
+
+    if (error) {
         return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" />
-                <Text>A carregar animais...</Text>
+            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+                <Text style={{ color: "red", fontSize: 16 }}>{error}</Text>
             </View>
         );
     }
-
-    const renderItem = ({ item }: any) => {
-        const name = item?.attributes?.name || "Sem nome";
-        const photo = item?.attributes?.pictureThumbnailUrl;
-
-        return (
-            <View style={styles.card}>
-                {photo && <Image source={{ uri: photo }} style={styles.image} />}
-                <Text style={styles.name}>{name}</Text>
-            </View>
-        );
-    };
 
     return (
-        <FlatList
-            data={animals}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={{ padding: 10 }}
-        />
+        <View style={styles.container}>
+            <FlatList
+                data={animals}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => {
+                    const photo =
+                        item?.attributes?.pictures?.[0]?.original?.url ||
+                        "https://placehold.co/300x200";
+
+                    return (
+                        <View style={styles.card}>
+                            <Image source={{ uri: photo }} style={styles.image} resizeMode="cover" />
+                            <View style={styles.info}>
+                                <Text style={styles.name}>{item.attributes.name}</Text>
+                                <Text style={styles.breed}>{item.attributes.speciesName}</Text>
+                            </View>
+                        </View>
+                    );
+                }}
+            />
+        </View>
     );
-};
+}
 
 const styles = StyleSheet.create({
-    center: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    container: { flex: 1, backgroundColor: "#f2f2f2" },
+    loader: { flex: 1, justifyContent: "center" },
     card: {
-        backgroundColor: '#fff',
-        padding: 10,
-        borderRadius: 10,
-        marginBottom: 15,
-        elevation: 3,
+        margin: 15,
+        backgroundColor: "#fff",
+        borderRadius: 15,
+        overflow: "hidden",
+        elevation: 3, // sombra Android
+        shadowColor: "#000", // sombra iOS
+        shadowOpacity: 0.1,
+        shadowOffset: { width: 0, height: 2 },
     },
-    image: {
-        width: '100%',
-        height: 200,
-        borderRadius: 10,
-    },
-    name: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginTop: 10,
-    }
+    image: { width: "100%", height: 250 },
+    info: { padding: 15 },
+    name: { fontSize: 22, fontWeight: "bold", color: "#333" },
+    breed: { fontSize: 16, color: "#666", marginTop: 5 },
 });
-
-export default AnimalsFeedScreen;
