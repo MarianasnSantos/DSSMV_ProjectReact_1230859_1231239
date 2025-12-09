@@ -1,7 +1,6 @@
-import Constants from 'expo-constants';
+// src/API/rescueGroups.ts
 
-// Pega a chave da API diretamente do app.config.js/.env
-const API_KEY = Constants.expoConfig?.extra?.EXPO_PUBLIC_API_KEY;
+const API_KEY = "WH97xX1z"; // só para testes
 
 // Tipo para os animais retornados pela API
 export type Animal = {
@@ -18,7 +17,6 @@ export type Animal = {
         }[];
     };
 };
-
 
 // Função para buscar animais
 export const buscarAnimais = async (): Promise<Animal[] | null> => {
