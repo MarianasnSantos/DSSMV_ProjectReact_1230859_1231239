@@ -184,7 +184,7 @@ android/.gradle/
 android/app/build/
 android/build/
 
-
+.env
 
 .yarn/*
 !.yarn/patches
