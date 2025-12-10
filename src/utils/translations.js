@@ -1,6 +1,4 @@
-// src/utils/translations.js
 
-// --- 1. Mapa de Tradução (Temperamentos) ---
 export const TEMPERAMENT_TRANSLATIONS = {
     // Termos básicos
     'Curious': 'Curioso',

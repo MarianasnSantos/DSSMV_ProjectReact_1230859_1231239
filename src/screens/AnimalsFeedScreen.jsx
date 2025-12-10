@@ -82,7 +82,7 @@ export default function AnimalsFeedScreen() {
                     style={[
                         styles.customIcon,
                         // Aplica um filtro de cor (tintColor) para indicar o estado
-                        { tintColor: isFavorite ? '#ff5252' : '#cccccc' }
+                        { tintColor: isFavorite ? '#ff5252' : '#f3b4b4' }
                     ]}
                 />
             </TouchableOpacity>
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 24,
         fontWeight: "bold",
-        color: '#e91e63', // Cor original que tínhamos
+        color: '#000000', // Cor original que tínhamos
     },
     favoriteButton: {
         padding: 8,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     adoptButton: {
-        backgroundColor: '#e91e63',
+        backgroundColor: '#f3b4b4',
         padding: 12,
         borderRadius: 8,
         marginTop: 15,
