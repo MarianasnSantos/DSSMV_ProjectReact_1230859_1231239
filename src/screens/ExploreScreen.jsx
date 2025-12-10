@@ -51,35 +51,58 @@ export default function ExploreScreen() {
     );
 }
 
+// --- ESTILOS NOVOS EM TONS DE ROSA BEBÉ ---
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#fff",
-        paddingHorizontal: 10,
+        backgroundColor: "#FFF0F5", // Rosa Lavanda (Fundo muito clarinho)
+        paddingHorizontal: 15,
+        paddingTop: 10,
     },
     center: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
+        backgroundColor: "#FFF0F5",
+    },
+    loadingText: {
+        marginTop: 10,
+        color: "#D81B60", // Rosa escuro
+        fontSize: 16,
     },
     card: {
-        backgroundColor: "#f2f2f2",
-        marginVertical: 10,
-        padding: 10,
-        borderRadius: 10,
+        backgroundColor: "#FFFFFF", // Branco para destacar do fundo rosa
+        marginVertical: 12,
+        borderRadius: 20, // Bordas bem redondas (estilo "fofo")
+        overflow: "hidden", // Garante que a imagem respeita as bordas redondas
+
+        // Sombra suave em rosa (efeito 3D leve)
+        shadowColor: "#FF69B4",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 5, // Sombra para Android
     },
     image: {
         width: "100%",
-        height: 200,
-        borderRadius: 10,
+        height: 220,
+        resizeMode: "cover",
+    },
+    textContainer: {
+        padding: 15,
     },
     name: {
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: "bold",
-        marginTop: 10,
+        color: "#D81B60", // Rosa Forte (igual ao ícone)
+        marginBottom: 5,
     },
     temperament: {
-        marginTop: 5,
-        color: "#555",
+        fontSize: 14,
+        color: "#880E4F", // Um tom bordeaux/rosa escuro para leitura fácil
+        lineHeight: 20,
     },
 });
