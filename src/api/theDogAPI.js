@@ -1,6 +1,5 @@
 // src/API/theDogAPI.js
 
-// Substitua pela sua chave API
 const API_KEY = "live_HFWDmoFTpPNthL3vABnNtUWxJ4zMGzg1qLRfa9Xt8hjTAkrc2DhrTkj9kUL5c0vz";
 
 
