@@ -1,6 +1,6 @@
 
 import AppDispatcher from '../dispatchers/AppDispatcher';
-import { buscarCães } from '../API/theDogAPI';
+import { buscarCães } from '../api/theDogAPI';
 
 export class PetActions {
     static async loadAnimals() {
