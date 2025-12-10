@@ -31,6 +31,7 @@ export default function AddAnimalScreen({ navigation }) {
             age,
             temperament,
             photoUrl,
+            addedBy: "user-app",
             createdAt: new Date().toISOString(),
         };
 
