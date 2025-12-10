@@ -2,12 +2,14 @@
 
 import AppDispatcher from '../dispatchers/AppDispatcher';
 import { buscarCães } from '../API/theDogAPI';
+// ⭐️ Importa a função de tradução que definimos
+import {translateLifeSpan, translateTemperament} from '../utils/translations';
 // Importa o serviço para atualizar favoritos no RestDB.io
 import { updateUserFavorites } from '../services/UserService';
 // Importa o Store de Autenticação para obter o ID do usuário e a lista de favoritos
 import AuthStore from '../stores/AuthStore';
 
-// ⚠️ Simulação: Função dummy para o Serviço de Adoção (substituir por código real se necessário)
+// ⚠️ Simulação: Função dummy para o Serviço de Adoção
 const registerAdoptionInterest = async (animalId, userId) => {
     // Simula uma chamada API demorada
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -17,29 +19,40 @@ const registerAdoptionInterest = async (animalId, userId) => {
 
 
 export class PetActions {
-
+    // -----------------------------------------------------------------
+    // AÇÃO 1: PROCURAR ANIMAIS (Lógica COMPLETA com Tradução)
+    // -----------------------------------------------------------------
     static async loadAnimals() {
         AppDispatcher.dispatch({ type: 'LOAD_ANIMALS_START' });
 
         try {
-            // ⭐️ Chama o Serviço de API
-            const animals = await buscarCães();
+            // 1. Chama o Serviço de API
+            const rawAnimals = await buscarCães();
 
-            if (animals && animals.length > 0) {
-                // SUCESSO
+            if (rawAnimals && rawAnimals.length > 0) {
+
+                // 2. PROCESSAMENTO E TRADUÇÃO DOS DADOS:
+                const processedAnimals = rawAnimals.map(animal => ({
+                    ...animal,
+                    // Aplica a tradução ao campo temperament
+                    temperament: translateTemperament(animal.temperament),
+                    life_span: translateLifeSpan(animal.life_span),
+                }));
+
+                // 3. SUCESSO: Envia os dados traduzidos para o Store
                 AppDispatcher.dispatch({
                     type: 'LOAD_ANIMALS_SUCCESS',
-                    payload: { animals },
+                    payload: { animals: processedAnimals },
                 });
             } else {
-                // DADOS VAZIOS
+                // 3. DADOS VAZIOS
                 AppDispatcher.dispatch({
                     type: 'LOAD_ANIMALS_FAIL',
                     payload: { error: "API retornou dados vazios ou nulos." },
                 });
             }
         } catch (error) {
-            // FALHA DE REDE/CATCH (Tratamento de Erros)
+            // 3. FALHA DE REDE/CATCH
             console.error("Erro na Action ao carregar animais:", error);
             AppDispatcher.dispatch({
                 type: 'LOAD_ANIMALS_FAIL',
@@ -58,11 +71,9 @@ export class PetActions {
         });
 
         try {
-            // 2. Chama a função de serviço simulada
             const success = await registerAdoptionInterest(animalId, userId);
 
             if (success) {
-                // 3. Sucesso: Notifica os Stores
                 AppDispatcher.dispatch({
                     type: 'ADOPTION_SUCCESS',
                     payload: { animalId }
@@ -72,7 +83,6 @@ export class PetActions {
             }
 
         } catch (error) {
-            // 3. Falha: Notifica os Stores
             AppDispatcher.dispatch({
                 type: 'ADOPTION_FAIL',
                 payload: { animalId, error: error.message || "Falha de rede ao enviar pedido." },
@@ -84,7 +94,6 @@ export class PetActions {
     // AÇÃO 3: ADICIONAR/REMOVER DOS FAVORITOS (Comunicação Dupla API)
     // -----------------------------------------------------------------
     static async toggleFavorite(animalId) {
-        // 1. Obter estado atual do AuthStore
         const { user, favorites } = AuthStore.getState();
 
         if (!user || !user._id) {
@@ -99,7 +108,6 @@ export class PetActions {
         let newFavorites;
         const isCurrentlyFavorite = favorites.includes(animalId);
 
-        // Define o NOVO array de favoritos
         if (isCurrentlyFavorite) {
             newFavorites = favorites.filter(id => id !== animalId);
         } else {
@@ -107,17 +115,14 @@ export class PetActions {
         }
 
         try {
-            // 2. Chama o Serviço: Atualiza o RestDB.io com o novo array
             await updateUserFavorites(userId, newFavorites);
 
-            // 3. Sucesso: Notifica o AuthStore para atualizar o estado local
             AppDispatcher.dispatch({
                 type: 'FAVORITE_SUCCESS',
                 payload: { animalId }
             });
 
         } catch (error) {
-            // 3. Falha: Notifica o Store
             AppDispatcher.dispatch({
                 type: 'FAVORITE_FAIL',
                 payload: { error: error.message || "Falha ao comunicar com o servidor de perfil." },

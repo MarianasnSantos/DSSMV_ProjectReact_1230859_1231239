@@ -1,26 +1,30 @@
-// src/screens/AnimalsFeedScreen.jsx
+
 
 import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
     FlatList,
-    Image,
+    Image, // ⭐️ COMPONENTE IMAGEM AGORA USADO PARA O ÍCONE
     ActivityIndicator,
     StyleSheet,
     TouchableOpacity,
     Alert
 } from "react-native";
 
-// ⭐️ IMPORTAÇÃO DO ÍCONE (Necessário após a instalação via npm)
-import Icon from 'react-native-vector-icons/FontAwesome';
+// ⚠️ Removemos: import Icon from 'react-native-vector-icons/FontAwesome';
+
+// ⭐️ IMPORTAÇÃO DA IMAGEM DO ÍCONE ⭐️
+// Assumimos que a imagem está em src/assets/images/dog_heart_icon.png
+const FAVORITE_ICON = require('../assets/favorito.png');
+
 
 // Importações Flux
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 
-// --- Hook Customizado para integração com o Store ---
+// --- Hook Customizado (inalterado) ---
 function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
@@ -31,13 +35,12 @@ function usePetStoreState() {
     return state;
 }
 
-// --- Funções Auxiliares de Estado ---
+// --- Funções Auxiliares de Estado (inalteradas) ---
 const getAuthData = () => {
-    // Obtém o user, favoritos e status de login do Store de Autenticação
     const { user, favorites, isLoggedIn } = AuthStore.getState();
     return {
         userId: user?._id,
-        favorites: favorites || [], // Garante que é um array
+        favorites: favorites || [],
         isLoggedIn
     };
 };
@@ -48,37 +51,21 @@ const handleAdoption = (animalId) => {
         Alert.alert("Erro de Autenticação", "Deve estar autenticado para iniciar o processo de adoção.");
         return;
     }
-    // Dispara a Ação Flux
     PetActions.startAdoption(animalId, userId);
 };
 
 
 export default function AnimalsFeedScreen() {
-    // ⭐️ Usando 'animals' para satisfazer o cache do TypeScript
     const { animals, loading, error, adoptionRequests } = usePetStoreState();
-
-    // Obtemos a lista de favoritos
     const { favorites, isLoggedIn } = getAuthData();
 
     useEffect(() => {
-        // Dispara a AÇÃO para iniciar o fluxo de procura de animais
         PetActions.loadAnimals();
     }, []);
 
-    // --- Renderização Condicional ---
-    if (loading) {
-        return <ActivityIndicator size="large" color="#e91e63" style={styles.loader} />;
-    }
+    // ... (Renderização Condicional loading/error)
 
-    if (error) {
-        return (
-            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-                <Text style={{ color: "red", fontSize: 16 }}>{error}</Text>
-            </View>
-        );
-    }
-
-    // --- Renderização do Ícone de Favoritos ---
+    // --- Renderização do Ícone de Favoritos (AGORA COM IMAGEM) ---
     const renderFavoriteIcon = (item) => {
         if (!isLoggedIn) return null;
 
@@ -89,20 +76,25 @@ export default function AnimalsFeedScreen() {
                 style={styles.favoriteButton}
                 onPress={() => PetActions.toggleFavorite(item.id)}
             >
-                {/* Ícone de Coração - Cheio se favorito, Contorno caso contrário */}
-                <Icon
-                    name={isFavorite ? 'paw' : 'paw'}
-                    size={28}
-                    color={isFavorite ? '#ff5252' : '#cccccc'}
+                {/* ⭐️ USO DA IMAGEM PARA O ÍCONE ⭐️ */}
+                <Image
+                    source={FAVORITE_ICON}
+                    style={[
+                        styles.customIcon,
+                        // Aplica um filtro de cor (tintColor) para indicar o estado
+                        { tintColor: isFavorite ? '#ff5252' : '#cccccc' }
+                    ]}
                 />
             </TouchableOpacity>
         );
     };
 
 
-    // --- Renderização do Botão de Adoção ---
+    // --- Renderização do Botão de Adoção (inalterada) ---
     const renderAdoptionButton = (item) => {
         const adoptionStatus = adoptionRequests[item.id];
+        // ... (lógica do botão)
+
         let buttonText;
         let buttonStyle = styles.adoptButton;
         let isDisabled = false;
@@ -180,7 +172,6 @@ export default function AnimalsFeedScreen() {
                                     )}
                                 </View>
 
-                                {/* Botão de Adoção (com estado Flux) */}
                                 {renderAdoptionButton(item)}
 
                             </View>
@@ -217,10 +208,17 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 24,
         fontWeight: "bold",
-        color: '#000000',
+        color: '#e91e63', // Cor original que tínhamos
     },
     favoriteButton: {
         padding: 8,
+    },
+    // ⭐️ NOVO ESTILO PARA A IMAGEM ⭐️
+    customIcon: {
+        width: 30, // Ajuste o tamanho conforme necessário
+        height: 30,
+        resizeMode: 'contain',
+        // O tintColor no renderFavoriteIcon lida com a cor
     },
     separator: {
         height: 1,
@@ -248,7 +246,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     adoptButton: {
-        backgroundColor: '#f3b4b4',
+        backgroundColor: '#e91e63',
         padding: 12,
         borderRadius: 8,
         marginTop: 15,
