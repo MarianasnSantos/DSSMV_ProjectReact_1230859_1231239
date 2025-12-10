@@ -1,6 +1,6 @@
 
 import AppDispatcher from '../dispatchers/AppDispatcher';
-import { buscarAnimais } from '../API/theDogAPI';
+import { buscarCães } from '../API/theDogAPI';
 
 export class PetActions {
     static async loadAnimals() {
@@ -12,7 +12,7 @@ export class PetActions {
         try {
             // 2. Chamar a função de utilidade de rede
             // Assumindo que buscarAnimais é uma função assíncrona, e não uma classe que precisa de 'new'
-            const animals = await buscarAnimais();
+            const animals = await buscarCães();
             // Se buscarAnimais realmente for uma classe, use: const animals = await new buscarAnimais().algumMetodo();
 
 
