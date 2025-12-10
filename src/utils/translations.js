@@ -1,11 +1,13 @@
+// src/utils/translations.js
 
+// --- 1. Mapa de Tradução (Temperamentos) ---
 export const TEMPERAMENT_TRANSLATIONS = {
     // Termos básicos
     'Curious': 'Curioso',
     'Independent': 'Independente',
     'Happy': 'Feliz',
     'Intelligent': 'Inteligente',
-    'Lively': 'Animado',
+    'Lively': 'Vivo',
     'Friendly': 'Amigável',
     'Social': 'Sociável',
     'Playful': 'Brincalhão',
@@ -60,40 +62,23 @@ export const TEMPERAMENT_TRANSLATIONS = {
     'Bold': 'Audaz',
     'Extroverted': 'Extrovertido',
     'Charming': 'Charmoso',
-    'Docile': 'Dócil',
 };
 
 
 // --- 2. Função para Traduzir Múltiplos Temperamentos ---
 export const translateTemperament = (temperamentString) => {
     if (!temperamentString) return '';
-
-    // Divide a string em temperamentos individuais
     const temperaments = temperamentString.split(',').map(t => t.trim());
-
-    // Traduz cada termo usando o mapa. Se não encontrar, mantém o original (t)
     const translated = temperaments.map(t => TEMPERAMENT_TRANSLATIONS[t] || t);
-
-    // Rejunta a string
     return translated.join(', ');
 };
 
 // --- 3. Função para Traduzir o Tempo de Vida (Life Span) ---
-/**
- * Traduz e formata o campo life_span para português.
- * A API retorna tipicamente "10 - 12 years"
- * @param {string} lifeSpanString - Ex: "10 - 12 years"
- * @returns {string} - Ex: "10 - 12 anos"
- */
 export const translateLifeSpan = (lifeSpanString) => {
     if (!lifeSpanString) return '';
 
-    // Substitui "years" por "anos"
     let translatedString = lifeSpanString.replace('years', 'anos').trim();
-
-    // Se a API por vezes usar "year" (singular)
     translatedString = translatedString.replace('year', 'ano').trim();
 
-    // Adiciona o prefixo "Vida: " que você usava no ecrã (opcional, mas útil para formatação)
     return translatedString;
 };

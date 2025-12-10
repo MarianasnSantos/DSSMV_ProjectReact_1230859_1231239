@@ -1,30 +1,28 @@
-
+// src/screens/AnimalsFeedScreen.jsx
 
 import React, { useEffect, useState } from "react";
 import {
     View,
     Text,
     FlatList,
-    Image, // ⭐️ COMPONENTE IMAGEM AGORA USADO PARA O ÍCONE
+    Image,
     ActivityIndicator,
     StyleSheet,
     TouchableOpacity,
-    Alert
+    Alert,
+    TextInput
 } from "react-native";
 
-// ⚠️ Removemos: import Icon from 'react-native-vector-icons/FontAwesome';
-
-// ⭐️ IMPORTAÇÃO DA IMAGEM DO ÍCONE ⭐️
-// Assumimos que a imagem está em src/assets/images/dog_heart_icon.png
-const FAVORITE_ICON = require('../assets/favorito.png');
-
+import { Picker } from '@react-native-picker/picker';
 
 // Importações Flux
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 
-// --- Hook Customizado (inalterado) ---
+const FAVORITE_ICON = require('../assets/favorito.png');
+
+// --- Funções Auxiliares (inalteradas) ---
 function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
@@ -35,7 +33,6 @@ function usePetStoreState() {
     return state;
 }
 
-// --- Funções Auxiliares de Estado (inalteradas) ---
 const getAuthData = () => {
     const { user, favorites, isLoggedIn } = AuthStore.getState();
     return {
@@ -56,16 +53,71 @@ const handleAdoption = (animalId) => {
 
 
 export default function AnimalsFeedScreen() {
-    const { animals, loading, error, adoptionRequests } = usePetStoreState();
+    const {
+        animals,
+        loading,
+        error,
+        adoptionRequests,
+        availableBreeds,
+        filters
+    } = usePetStoreState();
+
     const { favorites, isLoggedIn } = getAuthData();
 
     useEffect(() => {
         PetActions.loadAnimals();
     }, []);
 
-    // ... (Renderização Condicional loading/error)
+    const getFilteredAnimals = () => {
+        let filteredList = animals;
 
-    // --- Renderização do Ícone de Favoritos (AGORA COM IMAGEM) ---
+        if (filters.breed) {
+            filteredList = filteredList.filter(animal => animal.name === filters.breed);
+        }
+
+        const minAge = parseInt(filters.minAge);
+        if (!isNaN(minAge) && minAge > 0) {
+            filteredList = filteredList.filter(animal => {
+                if (!animal.life_span) return false;
+                const spanParts = animal.life_span.split('-');
+                let maxLifeSpan;
+
+                if (spanParts.length > 1) {
+                    maxLifeSpan = parseInt(spanParts[1].replace('anos', '').replace('ano', '').trim());
+                } else {
+                    maxLifeSpan = parseInt(spanParts[0].replace('anos', '').replace('ano', '').trim());
+                }
+                return maxLifeSpan >= minAge;
+            });
+        }
+
+        if (filters.temperament && filters.temperament.trim().length > 0) {
+            const searchText = filters.temperament.trim().toLowerCase();
+            filteredList = filteredList.filter(animal =>
+                animal.temperament && animal.temperament.toLowerCase().includes(searchText)
+            );
+        }
+
+        return filteredList;
+    };
+
+    const filteredAnimals = getFilteredAnimals();
+
+
+    // --- Renderização Condicional (Loading/Error) ---
+    if (loading) {
+        return <ActivityIndicator size="large" color="#e91e63" style={styles.loader} />;
+    }
+
+    if (error) {
+        return (
+            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+                <Text style={{ color: "red", fontSize: 16 }}>{error}</Text>
+            </View>
+        );
+    }
+
+    // --- Renderização do Ícone de Favoritos (Imagem) ---
     const renderFavoriteIcon = (item) => {
         if (!isLoggedIn) return null;
 
@@ -76,13 +128,11 @@ export default function AnimalsFeedScreen() {
                 style={styles.favoriteButton}
                 onPress={() => PetActions.toggleFavorite(item.id)}
             >
-                {/* ⭐️ USO DA IMAGEM PARA O ÍCONE ⭐️ */}
                 <Image
                     source={FAVORITE_ICON}
                     style={[
                         styles.customIcon,
-                        // Aplica um filtro de cor (tintColor) para indicar o estado
-                        { tintColor: isFavorite ? '#ff5252' : '#f3b4b4' }
+                        { tintColor: isFavorite ? '#e91e63' : '#999999' } // Coração vermelho/cinza escuro
                     ]}
                 />
             </TouchableOpacity>
@@ -90,11 +140,9 @@ export default function AnimalsFeedScreen() {
     };
 
 
-    // --- Renderização do Botão de Adoção (inalterada) ---
+    // --- Renderização do Botão de Adoção ---
     const renderAdoptionButton = (item) => {
         const adoptionStatus = adoptionRequests[item.id];
-        // ... (lógica do botão)
-
         let buttonText;
         let buttonStyle = styles.adoptButton;
         let isDisabled = false;
@@ -137,8 +185,44 @@ export default function AnimalsFeedScreen() {
     // --- Renderização Principal (FlatList) ---
     return (
         <View style={styles.container}>
+
+            {/* ⭐️ CONTROLO DE FILTROS ⭐️ */}
+            <View style={styles.filterContainer}>
+
+                {/* 1. FILTRO POR RAÇA */}
+                <Picker
+                    selectedValue={filters.breed || 'Todos'}
+                    style={styles.pickerStyle}
+                    onValueChange={(itemValue) => PetActions.setFilter('breed', itemValue)}
+                >
+                    {availableBreeds.map(breed => (
+                        <Picker.Item key={breed} label={breed} value={breed} />
+                    ))}
+                </Picker>
+
+                {/* 2. FILTRO POR IDADE MÍNIMA */}
+                <TextInput
+                    style={styles.textInputStyle}
+                    placeholder="Idade Mínima (Anos)"
+                    keyboardType="numeric"
+                    placeholderTextColor="#999" // Cor do placeholder
+                    value={filters.minAge}
+                    onChangeText={(text) => PetActions.setFilter('minAge', text)}
+                />
+            </View>
+
+            {/* 3. BARRA DE PESQUISA POR TEMPERAMENTO */}
+            <TextInput
+                style={[styles.textInputStyle, styles.temperamentSearch]}
+                placeholder="Pesquisar Temperamento (Ex: Corajoso, Leal)"
+                placeholderTextColor="#999" // Cor do placeholder
+                value={filters.temperament}
+                onChangeText={(text) => PetActions.setFilter('temperament', text)}
+            />
+
+            {/* ⭐️ FLATLIST USA filteredAnimals ⭐️ */}
             <FlatList
-                data={animals}
+                data={filteredAnimals}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => {
                     const photo = item.image?.url || "https://placehold.co/300x200";
@@ -148,7 +232,6 @@ export default function AnimalsFeedScreen() {
 
                             <View style={styles.info}>
 
-                                {/* Nome e Favorito (alinhados) */}
                                 <View style={styles.headerContainer}>
                                     <Text style={styles.name}>{item.name}</Text>
                                     {renderFavoriteIcon(item)}
@@ -156,7 +239,6 @@ export default function AnimalsFeedScreen() {
 
                                 <View style={styles.separator} />
 
-                                {/* Detalhes (layout de colunas) */}
                                 <View style={styles.detailsContainer}>
                                     {item.life_span && (
                                         <View style={styles.detailItem}>
@@ -184,7 +266,7 @@ export default function AnimalsFeedScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#f2f2f2" },
+    container: { flex: 1, backgroundColor: "#f2f2f2" }, // Fundo geral
     loader: { flex: 1, justifyContent: "center" },
     card: {
         margin: 15,
@@ -208,21 +290,19 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 24,
         fontWeight: "bold",
-        color: '#000000', // Cor original que tínhamos
+        color: '#f3b4b4', // Cor Principal
     },
     favoriteButton: {
         padding: 8,
     },
-    // ⭐️ NOVO ESTILO PARA A IMAGEM ⭐️
     customIcon: {
-        width: 30, // Ajuste o tamanho conforme necessário
+        width: 30,
         height: 30,
         resizeMode: 'contain',
-        // O tintColor no renderFavoriteIcon lida com a cor
     },
     separator: {
         height: 1,
-        backgroundColor: '#f3b4b4',
+        backgroundColor: '#dddddd', // Cinza claro para separador
         marginVertical: 10,
     },
     detailsContainer: {
@@ -238,15 +318,44 @@ const styles = StyleSheet.create({
     detailLabel: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#666',
+        color: '#666', // Cinza médio para labels
     },
     detailValue: {
         fontSize: 16,
-        color: '#333',
+        color: '#333', // Cinza escuro para valores
         marginTop: 2,
     },
+    filterContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        padding: 5,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#cccccc', // Borda inferior do container de filtros
+    },
+    pickerStyle: {
+        height: 40,
+        width: '45%',
+        color: '#333', // Cor do texto do Picker
+    },
+    textInputStyle: {
+        height: 40,
+        width: '45%',
+        borderColor: '#999999', // Borda dos inputs
+        borderWidth: 1,
+        borderRadius: 5,
+        paddingHorizontal: 10,
+        backgroundColor: '#fff',
+        marginHorizontal: 5,
+        color: '#333', // Cor do texto digitado
+    },
+    temperamentSearch: {
+        width: '95%',
+        marginVertical: 5,
+        alignSelf: 'center',
+    },
     adoptButton: {
-        backgroundColor: '#f3b4b4',
+        backgroundColor: '#f3b4b4', // Cor Principal
         padding: 12,
         borderRadius: 8,
         marginTop: 15,
@@ -258,7 +367,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     pendingButton: {
-        backgroundColor: '#ffb300',
+        backgroundColor: '#ffb300', // Cores secundárias para estado
     },
     successButton: {
         backgroundColor: '#4caf50',

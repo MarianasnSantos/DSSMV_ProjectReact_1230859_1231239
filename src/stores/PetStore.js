@@ -3,60 +3,72 @@
 import EventEmitter from 'eventemitter3';
 import AppDispatcher from '../dispatchers/AppDispatcher';
 
-// Definição do estado inicial privado
 let _state = {
-    animals: [], // Usando 'animals' para evitar o erro TS2339 no IDE
+    animals: [],
     loading: false,
     error: null,
-    // NOVO: Objeto para rastrear o estado de adoção por animalId: { animalId: 'pending' | 'success' | 'fail' }
     adoptionRequests: {},
+
+    // ESTADO PARA FILTROS
+    availableBreeds: [],
+    filters: {
+        breed: null,
+        minAge: null, // Novo campo
+        temperament: null, // Novo campo
+    },
 };
 
-// --- Store ---
 class PetStore extends EventEmitter {
-    getState() {
-        return _state;
-    }
-    // ... (métodos emitChange, addChangeListener, removeChangeListener)
-    emitChange() {
-        this.emit('change');
-    }
-
-    addChangeListener(callback) {
-        this.on('change', callback);
-    }
-
-    removeChangeListener(callback) {
-        this.removeListener('change', callback);
-    }
+    getState() { return _state; }
+    emitChange() { this.emit('change'); }
+    addChangeListener(callback) { this.on('change', callback); }
+    removeChangeListener(callback) { this.removeListener('change', callback); }
 }
 
 const store = new PetStore();
 
-// --- Registro no Dispatcher (Lógica de Negócio) ---
+// --- Registro no Dispatcher ---
 AppDispatcher.register((action) => {
     switch (action.type) {
-        // --- Fluxo de Carregamento (Existente) ---
+        // --- Fluxo de Carregamento ---
         case 'LOAD_ANIMALS_START':
             _state = { ..._state, loading: true, error: null };
             store.emitChange();
             break;
 
         case 'LOAD_ANIMALS_SUCCESS':
+            // ⭐️ Popula availableBreeds ao carregar os dados
+            const allBreeds = action.payload.animals
+                .map(a => a.name)
+                .filter((v, i, a) => a.indexOf(v) === i)
+                .sort();
+
             _state = {
                 ..._state,
                 loading: false,
                 animals: action.payload.animals,
+                availableBreeds: ['Todos', ...allBreeds], // 'Todos' no topo
                 error: null
             };
             store.emitChange();
             break;
 
         case 'LOAD_ANIMALS_FAIL':
+            _state = { ..._state, loading: false, error: action.payload.error };
+            store.emitChange();
+            break;
+
+        // ⭐️ AÇÃO PARA DEFINIR FILTRO ⭐️
+        case 'SET_FILTER':
+            const { filterType, value } = action.payload;
+            const cleanedValue = (value === 'Todos' || !value) ? null : value;
+
             _state = {
                 ..._state,
-                loading: false,
-                error: action.payload.error
+                filters: {
+                    ..._state.filters,
+                    [filterType]: cleanedValue,
+                }
             };
             store.emitChange();
             break;

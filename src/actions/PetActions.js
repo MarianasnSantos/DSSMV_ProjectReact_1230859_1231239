@@ -2,57 +2,48 @@
 
 import AppDispatcher from '../dispatchers/AppDispatcher';
 import { buscarCães } from '../API/theDogAPI';
-// ⭐️ Importa a função de tradução que definimos
-import {translateLifeSpan, translateTemperament} from '../utils/translations';
-// Importa o serviço para atualizar favoritos no RestDB.io
+import { translateTemperament, translateLifeSpan } from '../utils/translations';
 import { updateUserFavorites } from '../services/UserService';
-// Importa o Store de Autenticação para obter o ID do usuário e a lista de favoritos
 import AuthStore from '../stores/AuthStore';
 
 // ⚠️ Simulação: Função dummy para o Serviço de Adoção
 const registerAdoptionInterest = async (animalId, userId) => {
-    // Simula uma chamada API demorada
     await new Promise(resolve => setTimeout(resolve, 800));
     console.log(`Interesse de adoção registado para Animal ID: ${animalId} pelo Usuário ID: ${userId}`);
-    return true; // Simula o sucesso
+    return true;
 };
 
 
 export class PetActions {
     // -----------------------------------------------------------------
-    // AÇÃO 1: PROCURAR ANIMAIS (Lógica COMPLETA com Tradução)
+    // AÇÃO 1: PROCURAR ANIMAIS (COM TRADUÇÃO)
     // -----------------------------------------------------------------
     static async loadAnimals() {
         AppDispatcher.dispatch({ type: 'LOAD_ANIMALS_START' });
 
         try {
-            // 1. Chama o Serviço de API
             const rawAnimals = await buscarCães();
 
             if (rawAnimals && rawAnimals.length > 0) {
 
-                // 2. PROCESSAMENTO E TRADUÇÃO DOS DADOS:
+                // PROCESSAMENTO E TRADUÇÃO DOS DADOS:
                 const processedAnimals = rawAnimals.map(animal => ({
                     ...animal,
-                    // Aplica a tradução ao campo temperament
                     temperament: translateTemperament(animal.temperament),
                     life_span: translateLifeSpan(animal.life_span),
                 }));
 
-                // 3. SUCESSO: Envia os dados traduzidos para o Store
                 AppDispatcher.dispatch({
                     type: 'LOAD_ANIMALS_SUCCESS',
                     payload: { animals: processedAnimals },
                 });
             } else {
-                // 3. DADOS VAZIOS
                 AppDispatcher.dispatch({
                     type: 'LOAD_ANIMALS_FAIL',
                     payload: { error: "API retornou dados vazios ou nulos." },
                 });
             }
         } catch (error) {
-            // 3. FALHA DE REDE/CATCH
             console.error("Erro na Action ao carregar animais:", error);
             AppDispatcher.dispatch({
                 type: 'LOAD_ANIMALS_FAIL',
@@ -62,7 +53,17 @@ export class PetActions {
     }
 
     // -----------------------------------------------------------------
-    // AÇÃO 2: INICIAR PROCESSO DE ADOÇÃO
+    // AÇÃO 2: DEFINIR FILTRO (Para Raça, Idade Mínima, Temperamento)
+    // -----------------------------------------------------------------
+    static setFilter(filterType, value) {
+        AppDispatcher.dispatch({
+            type: 'SET_FILTER',
+            payload: { filterType, value }
+        });
+    }
+
+    // -----------------------------------------------------------------
+    // AÇÃO 3: INICIAR PROCESSO DE ADOÇÃO
     // -----------------------------------------------------------------
     static async startAdoption(animalId, userId) {
         AppDispatcher.dispatch({
@@ -91,7 +92,7 @@ export class PetActions {
     }
 
     // -----------------------------------------------------------------
-    // AÇÃO 3: ADICIONAR/REMOVER DOS FAVORITOS (Comunicação Dupla API)
+    // AÇÃO 4: ADICIONAR/REMOVER DOS FAVORITOS
     // -----------------------------------------------------------------
     static async toggleFavorite(animalId) {
         const { user, favorites } = AuthStore.getState();
