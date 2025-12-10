@@ -1,5 +1,5 @@
 const API_URL = "https://petmatch-afab.restdb.io/rest/animals";
-const API_KEY = "A_TUA_API_KEY_AQUI"; // coloca a tua chave do RestDB
+const API_KEY = "a29c6a5e4f29c400c1ffac21c4c454f2af5a3";
 
 export async function getAnimals() {
     try {
