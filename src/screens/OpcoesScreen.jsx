@@ -1,16 +1,12 @@
+// src/screens/OpcoesScreen.jsx
+
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { MainStackParamList } from '../navigation/MainNavigator';
 
-// Tipagem das props de navegação
-type OpcoesScreenNavigationProp = StackNavigationProp<MainStackParamList, 'Opcoes'>;
+// O tipo StackNavigationProp e as interfaces são removidos.
+// A prop 'navigation' é acessada diretamente no JS.
 
-interface OpcoesScreenProps {
-    navigation: OpcoesScreenNavigationProp;
-}
-
-const OpcoesScreen: React.FC<OpcoesScreenProps> = ({ navigation }) => {
+const OpcoesScreen = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>O que deseja fazer? 🐾</Text>
@@ -19,7 +15,8 @@ const OpcoesScreen: React.FC<OpcoesScreenProps> = ({ navigation }) => {
             {/* Opção 1: Feed de Animais para Adoção */}
             <TouchableOpacity
                 style={[styles.button, styles.adoptionButton]}
-                onPress={() => navigation.navigate('PetList')}   // 👉 Agora abre AnimalsFeedScreen
+                // A navegação usa as strings de nome de tela definidas no MainNavigator
+                onPress={() => navigation.navigate('PetList')}
             >
                 <Text style={styles.buttonText}>🐶 Ver Animais para Adoção</Text>
                 <Text style={styles.buttonSubText}>Conheça os patudos à espera de um lar.</Text>

@@ -1,29 +1,42 @@
-// src/screens/AnimalsFeedScreen.tsx
+// src/screens/AnimalsFeedScreen.jsx
+
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, Image, ActivityIndicator, StyleSheet } from "react-native";
-import { buscarCachorros, Dog } from "../API/theDogAPI";
+// Importações Flux
+import { PetActions } from "../actions/PetActions"; // Para iniciar o fluxo
+import PetStore from "../stores/PetStore"; // Para ler o estado
 
-export default function AnimalsFeedScreen() {
-    const [dogs, setDogs] = useState<Dog[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+// --- Hook Customizado para integração com o Store ---
+function usePetStoreState() {
+    // Inicializa o estado local com o estado atual do Store
+    const [state, setState] = useState(PetStore.getState());
 
     useEffect(() => {
-        async function load() {
-            try {
-                const result = await buscarCachorros();
-                if (result) setDogs(result);
-                else setError("Não foi possível carregar os cachorros.");
-            } catch (err) {
-                console.error("Erro no feed:", err);
-                setError("Erro ao buscar cachorros.");
-            } finally {
-                setLoading(false);
-            }
-        }
+        const handleChange = () => {
+            // Quando o Store muda, atualiza o estado do componente
+            setState(PetStore.getState());
+        };
 
-        load();
+        // Assina o evento 'change' do Store
+        PetStore.addChangeListener(handleChange);
+
+        // Função de limpeza: Desassina o evento ao desmontar o componente
+        return () => {
+            PetStore.removeChangeListener(handleChange);
+        };
     }, []);
+
+    return state;
+}
+
+export default function AnimalsFeedScreen() {
+    // Usa o hook para obter o estado centralizado (dogs, loading, error)
+    const { dogs, loading, error } = usePetStoreState();
+
+    useEffect(() => {
+        // Dispara a AÇÃO para iniciar o fluxo de busca, uma única vez
+        PetActions.loadAnimals();
+    }, []); // Array vazio garante que só roda na montagem
 
     if (loading) {
         return <ActivityIndicator size="large" color="#e91e63" style={styles.loader} />;
@@ -40,9 +53,11 @@ export default function AnimalsFeedScreen() {
     return (
         <View style={styles.container}>
             <FlatList
+                // Usa o estado 'dogs' vindo do Store
                 data={dogs}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => {
+                    // Acessa as propriedades do item (já sem tipagem TS)
                     const photo = item.image?.url || "https://placehold.co/300x200";
                     return (
                         <View style={styles.card}>
@@ -52,6 +67,7 @@ export default function AnimalsFeedScreen() {
                                 {item.temperament && <Text style={styles.breed}>{item.temperament}</Text>}
                                 {item.life_span && <Text style={styles.breed}>Vida: {item.life_span}</Text>}
                             </View>
+                            {/* Adicionar aqui um botão para PetActions.likePet(item.id) */}
                         </View>
                     );
                 }}
@@ -78,4 +94,3 @@ const styles = StyleSheet.create({
     name: { fontSize: 22, fontWeight: "bold", color: "#333" },
     breed: { fontSize: 16, color: "#666", marginTop: 5 },
 });
-

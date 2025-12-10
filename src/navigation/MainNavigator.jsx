@@ -1,3 +1,5 @@
+// src/navigation/MainNavigator.jsx
+
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
@@ -5,16 +7,12 @@ import HomeScreen from '../screens/HomeScreen';
 import OpcoesScreen from '../screens/OpcoesScreen';
 import AnimalsFeedScreen from '../screens/AnimalsFeedScreen';
 
-export type MainStackParamList = {
-    Opcoes: undefined;   // Ecrã inicial
-    PetList: undefined;  // Lista de animais para adoção
-    ForumFeed: undefined;
-    Home: undefined;
-};
+// A tipagem 'MainStackParamList' é removida, 
+// o objeto MainStack é criado sem tipos explícitos.
+const MainStack = createStackNavigator();
 
-const MainStack = createStackNavigator<MainStackParamList>();
-
-const MainNavigator: React.FC = () => {
+// A tipagem React.FC é removida.
+const MainNavigator = () => {
     return (
         <MainStack.Navigator
             initialRouteName="Opcoes"
@@ -34,7 +32,7 @@ const MainNavigator: React.FC = () => {
             {/* FEED DE ANIMAIS */}
             <MainStack.Screen
                 name="PetList"
-                component={AnimalsFeedScreen}   // <-- ALTERADO AQUI
+                component={AnimalsFeedScreen}
                 options={{ title: 'Animais para Adoção' }}
             />
 

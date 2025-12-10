@@ -1,6 +1,6 @@
-// src/actions/PetActions.ts
+
 import AppDispatcher from '../dispatchers/AppDispatcher';
-import { buscarAnimais } from '../API/rescueGroups';
+import { buscarAnimais } from '../API/theDogAPI';
 
 export class PetActions {
     static async loadAnimals() {
@@ -11,7 +11,10 @@ export class PetActions {
 
         try {
             // 2. Chamar a função de utilidade de rede
+            // Assumindo que buscarAnimais é uma função assíncrona, e não uma classe que precisa de 'new'
             const animals = await buscarAnimais();
+            // Se buscarAnimais realmente for uma classe, use: const animals = await new buscarAnimais().algumMetodo();
+
 
             if (animals) {
                 // 3. Sucesso: Envia os dados
@@ -20,14 +23,14 @@ export class PetActions {
                     payload: { animals },
                 });
             } else {
-                // 3. Falha: Trata o caso em que a API retorna null (erro interno já tratado)
+                // 3. Falha: Trata o caso em que a API retorna null
                 AppDispatcher.dispatch({
                     type: 'LOAD_ANIMALS_FAIL',
                     payload: { error: "Não foi possível carregar animais (Resposta vazia)." },
                 });
             }
-        } catch (error: any) {
-            // 3. Falha: Envia a mensagem de erro da API
+        } catch (error) {
+            // 3. Falha: Bloco catch simples (JS puro, removemos o ': any')
             AppDispatcher.dispatch({
                 type: 'LOAD_ANIMALS_FAIL',
                 payload: { error: error.message || "Erro desconhecido ao buscar animais." },

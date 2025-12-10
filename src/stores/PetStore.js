@@ -1,27 +1,25 @@
-import EventEmitter from 'eventemitter3'; // 1. Corrigido: Uso de eventemitter3 para React Native
+// src/stores/PetStore.js
+
+import EventEmitter from 'eventemitter3'; // Usamos eventemitter3 (polyfill para RN)
 import AppDispatcher from '../dispatchers/AppDispatcher';
-import { Animal } from '../API/rescueGroups';
-import { FluxAction } from '../types/ActionType';
-
-
-// --- Tipos ---
-interface PetStoreState {
-    animals: Animal[];
-    loading: boolean;
-    error: string | null;
-}
+// ⚠️ Nota: A importação de tipos como { Animal } e { FluxAction } é removida no JS puro.
 
 // Definição do estado inicial privado
-let _state: PetStoreState = {
-    animals: [],
+// Removemos a interface PetStoreState e a tipagem do estado
+let _state = {
+    // Renomeando para 'dogs' para consistência com theDogAPI
+    dogs: [],
     loading: false,
     error: null,
+    // (Opcional) Adicione likedDogs/swipedDogs se já tiver essa lógica:
+    // likedDogs: [],
 };
 
 // --- Store ---
 class PetStore extends EventEmitter {
     // Método para obter o estado atual (getter)
-    getState(): PetStoreState {
+    // Removemos a tipagem de retorno
+    getState() {
         return _state;
     }
 
@@ -30,11 +28,12 @@ class PetStore extends EventEmitter {
         this.emit('change');
     }
 
-    addChangeListener(callback: () => void) {
+    // Removemos a tipagem ': () => void'
+    addChangeListener(callback) {
         this.on('change', callback);
     }
 
-    removeChangeListener(callback: () => void) {
+    removeChangeListener(callback) {
         this.removeListener('change', callback);
     }
 }
@@ -42,35 +41,36 @@ class PetStore extends EventEmitter {
 const store = new PetStore();
 
 // --- Registro no Dispatcher (Lógica de Negócio) ---
-// 3. Tipagem explícita da action resolve o erro TS7006
-AppDispatcher.register((action: FluxAction) => {
+// Removemos a tipagem explícita da action ': FluxAction'
+AppDispatcher.register((action) => {
     switch (action.type) {
         case 'LOAD_ANIMALS_START':
             _state = { ..._state, loading: true, error: null };
-            store.emitChange(); // Notifica as Views para mostrar o ActivityIndicator
+            store.emitChange();
             break;
 
         case 'LOAD_ANIMALS_SUCCESS':
             _state = {
                 ..._state,
                 loading: false,
-                animals: action.payload.animals, // Assume que 'animals' está no payload
+                // Assume que o payload contém os dados sob a chave 'animals'
+                dogs: action.payload.animals,
                 error: null
             };
-            store.emitChange(); // Notifica as Views com os novos dados
+            store.emitChange();
             break;
 
         case 'LOAD_ANIMALS_FAIL':
             _state = {
                 ..._state,
                 loading: false,
-                error: action.payload.error // Assume que 'error' está no payload
+                error: action.payload.error
             };
-            store.emitChange(); // Notifica as Views com a mensagem de erro
+            store.emitChange();
             break;
 
         default:
-            return; // Ignora ações não relacionadas
+            return;
     }
 });
 

@@ -1,10 +1,12 @@
-// src/services/UserService.ts
+// src/services/UserService.js
 
+// O modelo User não é tipado em JS, mas é importado para referência ou classe
 import { User } from '../model/User';
 import { API_KEY, BASE_URL, DATABASE_NAME } from './ApiConfig';
 
-// A função agora recebe APENAS o username
-export async function loginUser(username: string): Promise<User | null> {
+// A função agora recebe APENAS o username (sem tipagem)
+export async function loginUser(username) {
+    // Constrói a URL para buscar o usuário específico no RestDB.io
     const url = `${BASE_URL}/${DATABASE_NAME}?q={"username": "${username}"}`;
 
     try {
@@ -23,12 +25,14 @@ export async function loginUser(username: string): Promise<User | null> {
             return null;
         }
 
+        // Remove a tipagem no await
         const data = await response.json();
 
         // restdb.io retorna um array de resultados
         if (data.length > 0) {
             // Se encontrou pelo menos um usuário, o login é bem-sucedido.
-            const loggedInUser: User = data[0];
+            // Remove a tipagem de atribuição
+            const loggedInUser = data[0];
             console.log('Login bem-sucedido para:', loggedInUser.username);
             return loggedInUser;
         } else {
@@ -37,7 +41,7 @@ export async function loginUser(username: string): Promise<User | null> {
             return null;
         }
 
-    } catch (error) {
+    } catch (error) { // Remove a tipagem de erro
         console.error('Erro de conexão ou durante o fetch:', error);
         return null;
     }

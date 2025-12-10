@@ -1,19 +1,9 @@
-// src/API/theDogAPI.ts
 
-export type Dog = {
-    id: number;
-    name: string;
-    temperament?: string;
-    life_span?: string;
-    image?: {
-        url: string;
-    };
-};
-
-// Substitui pelo teu API key da TheDog API
 const API_KEY = "live_HFWDmoFTpPNthL3vABnNtUWxJ4zMGzg1qLRfa9Xt8hjTAkrc2DhrTkj9kUL5c0vz";
 
-export const buscarCachorros = async (): Promise<Dog[] | null> => {
+
+// Removendo a tipagem: export const buscarCachorros = async () => { ... }
+export const buscarCachorros = async () => {
     try {
         const response = await fetch("https://api.thedogapi.com/v1/breeds", {
             headers: {
@@ -23,16 +13,21 @@ export const buscarCachorros = async (): Promise<Dog[] | null> => {
 
         if (!response.ok) {
             const text = await response.text();
+            // Removendo a tipagem e o 'throw new Error' em JS puro
             throw new Error(`Erro na API (${response.status}): ${text}`);
         }
 
         const data = await response.json();
         console.log("Sucesso! Cachorros encontrados:", data.length);
 
-        return data as Dog[];
+        // Retorna o array de dados (sem tipagem 'as Dog[]')
+        return data;
     } catch (error) {
         console.error("Falha ao buscar cachorros:", error);
         return null;
     }
 };
 
+// Removendo a classe vazia sem propósito no JS puro,
+// a menos que você queira usá-la.
+// export class buscarAnimais {}

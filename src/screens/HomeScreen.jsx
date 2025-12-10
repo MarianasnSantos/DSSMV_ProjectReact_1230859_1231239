@@ -1,7 +1,10 @@
+// src/screens/HomeScreen.jsx
+
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-const HomeScreen: React.FC = () => {
+// Removendo a tipagem React.FC
+const HomeScreen = () => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Bem-vindo!🐾</Text>

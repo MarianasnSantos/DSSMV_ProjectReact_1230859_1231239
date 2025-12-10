@@ -1,8 +1,10 @@
+// src/navigation/AppTabs.jsx
+
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons"; // Opcional: para ícones bonitos
+import { Ionicons } from "@expo/vector-icons";
 
-// Imports corrigidos conforme a tua lista de ficheiros:
+// Importa os componentes de tela
 import AnimalsFeedScreen from "../screens/AnimalsFeedScreen";
 import ExploreScreen from "../screens/ExploreScreen";
 import FavoriteScreen from "../screens/FavoriteScreen";
@@ -13,8 +15,9 @@ export default function AppTabs() {
     return (
         <Tab.Navigator
             screenOptions={{
+                // Desativa o cabeçalho para usar o layout customizado nas telas
                 headerShown: false,
-                tabBarActiveTintColor: '#e91e63', // Cor do ícone ativo
+                tabBarActiveTintColor: '#e91e63', // Cor do ícone ativo (Ex: Vermelho do PetMatch)
             }}
         >
             <Tab.Screen
@@ -22,6 +25,7 @@ export default function AppTabs() {
                 component={AnimalsFeedScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
+                        // Ícone de patinha para o feed principal
                         <Ionicons name="paw" size={size} color={color} />
                     )
                 }}
@@ -31,6 +35,7 @@ export default function AppTabs() {
                 component={ExploreScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
+                        // Ícone de busca
                         <Ionicons name="search" size={size} color={color} />
                     )
                 }}
@@ -40,6 +45,7 @@ export default function AppTabs() {
                 component={FavoriteScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
+                        // Ícone de coração para os favoritos (pets curtidos)
                         <Ionicons name="heart" size={size} color={color} />
                     )
                 }}

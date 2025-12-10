@@ -1,6 +1,6 @@
-// src/dispatchers/AppDispatcher.js
 
-// ⚠️ CORREÇÃO: Importar Dispatcher como o export default do módulo 'flux'
+
+// Importação correta do export default da biblioteca 'flux'
 import Dispatcher from 'flux';
 
 const AppDispatcher = new Dispatcher();

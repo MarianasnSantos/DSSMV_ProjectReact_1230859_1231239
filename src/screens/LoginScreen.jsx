@@ -1,50 +1,69 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { User } from '../model/User';
-// ✅ Importa a função de autenticação real do seu serviço
-import { authenticateUser } from '../services/AuthService';
 
-interface LoginScreenProps {
-    /** Função chamada após o login ser bem-sucedido, passando o objeto de utilizador. */
-    onLoginSuccess: (user: User) => void;
-    /** Função para navegar para a tela de Registo. */
-    onNavigateToRegister: () => void;
+// IMPORTAÇÕES FLUX
+import AuthStore from '../stores/AuthStore'; // O Store que mantém o estado de login
+import { UserActions } from '../actions/UserActions'; // A Action que dispara a autenticação
+
+// Hook Customizado para integração com o AuthStore
+function useAuthStoreState() {
+    // Estado inicializado com o estado atual do Store
+    const [state, setState] = useState(AuthStore.getState());
+
+    useEffect(() => {
+        const handleChange = () => {
+            setState(AuthStore.getState());
+        };
+
+        AuthStore.addChangeListener(handleChange);
+
+        return () => {
+            AuthStore.removeChangeListener(handleChange);
+        };
+    }, []);
+
+    return state;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
-    // Estado apenas para o username
+// ⚠️ Removemos a interface Props e as tipagens de parâmetro
+const LoginScreen = ({ onLoginSuccess, onNavigateToRegister }) => {
+    // Mantemos apenas o estado local para o INPUT
     const [username, setUsername] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = async () => {
+    // ✅ Obtemos o estado global do Store
+    const { loading, error, isLoggedIn, user } = useAuthStoreState();
+
+    // ------------------------------------------------------------------
+    // Efeito para REAGIR ao sucesso ou falha do Store
+    // ------------------------------------------------------------------
+    useEffect(() => {
+        if (error) {
+            // Reage ao erro vindo do Store
+            Alert.alert('Erro de Login', error);
+            // O Store já limpou o erro após o dispatch, mas limpamos o input
+            setUsername('');
+        }
+
+        if (isLoggedIn && user) {
+            // Reage ao sucesso vindo do Store e notifica o navegador raiz
+            onLoginSuccess(user);
+        }
+    }, [error, isLoggedIn, user]); // Dependências do estado do Store
+
+    const handleLogin = () => {
         if (!username) {
             Alert.alert('Erro', 'Por favor, preencha o nome de utilizador.');
             return;
         }
 
-        setIsLoading(true);
-        try {
-            // ✅ Chama o serviço para verificar se o utilizador existe
-            const user = await authenticateUser(username);
-
-            if (user) {
-                // Sucesso! Chama o callback que está no App.tsx para mudar o estado
-                onLoginSuccess(user);
-            } else {
-                // Utilizador não encontrado na base de dados
-                Alert.alert('Erro de Login', 'Nome de utilizador inválido ou não registado.');
-            }
-        } catch (error: any) {
-            // Erro de comunicação ou erro HTTP
-            console.error("Erro no login:", error);
-            Alert.alert('Erro de Conexão', error.message || 'Não foi possível conectar-se ao servidor.');
-        } finally {
-            setIsLoading(false);
-        }
+        // ✅ Ação Flux: Dispara o processo de login.
+        // A lógica de API e loading está AGORA no UserActions/AuthStore.
+        UserActions.login({ username });
     };
 
     return (
         <View style={styles.container}>
+            {/* ... (Título e Subtítulo) */}
             <Text style={styles.title}>Bem-vindo! 🐾</Text>
             <Text style={styles.subtitle}>Faça login para continuar</Text>
 
@@ -55,14 +74,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToR
                 autoCapitalize="none"
                 value={username}
                 onChangeText={setUsername}
+                // Desabilitar input durante o carregamento
+                editable={!loading}
             />
 
             <TouchableOpacity
                 style={styles.button}
                 onPress={handleLogin}
-                disabled={isLoading}
+                disabled={loading} // Usa o estado 'loading' do Store
             >
-                {isLoading ? (
+                {loading ? ( // Usa o estado 'loading' do Store
                     <ActivityIndicator color="#fff" />
                 ) : (
                     <Text style={styles.buttonText}>Entrar</Text>
@@ -72,6 +93,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onNavigateToR
             <TouchableOpacity
                 style={styles.linkButton}
                 onPress={onNavigateToRegister}
+                disabled={loading}
             >
                 <Text style={styles.linkText}>Não tem conta? Registe-se</Text>
             </TouchableOpacity>
