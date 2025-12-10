@@ -1,34 +1,27 @@
 // src/stores/PetStore.js
 
-import EventEmitter from 'eventemitter3'; // Usamos eventemitter3 (polyfill para RN)
+import EventEmitter from 'eventemitter3';
 import AppDispatcher from '../dispatchers/AppDispatcher';
-// ⚠️ Nota: A importação de tipos como { Animal } e { FluxAction } é removida no JS puro.
 
 // Definição do estado inicial privado
-// Removemos a interface PetStoreState e a tipagem do estado
 let _state = {
-    // Renomeando para 'dogs' para consistência com theDogAPI
-    dogs: [],
+    animals: [], // Usando 'animals' para evitar o erro TS2339 no IDE
     loading: false,
     error: null,
-    // (Opcional) Adicione likedDogs/swipedDogs se já tiver essa lógica:
-    // likedDogs: [],
+    // NOVO: Objeto para rastrear o estado de adoção por animalId: { animalId: 'pending' | 'success' | 'fail' }
+    adoptionRequests: {},
 };
 
 // --- Store ---
 class PetStore extends EventEmitter {
-    // Método para obter o estado atual (getter)
-    // Removemos a tipagem de retorno
     getState() {
         return _state;
     }
-
-    // Métodos para Views se registrarem e desregistrarem
+    // ... (métodos emitChange, addChangeListener, removeChangeListener)
     emitChange() {
         this.emit('change');
     }
 
-    // Removemos a tipagem ': () => void'
     addChangeListener(callback) {
         this.on('change', callback);
     }
@@ -41,9 +34,9 @@ class PetStore extends EventEmitter {
 const store = new PetStore();
 
 // --- Registro no Dispatcher (Lógica de Negócio) ---
-// Removemos a tipagem explícita da action ': FluxAction'
 AppDispatcher.register((action) => {
     switch (action.type) {
+        // --- Fluxo de Carregamento (Existente) ---
         case 'LOAD_ANIMALS_START':
             _state = { ..._state, loading: true, error: null };
             store.emitChange();
@@ -53,8 +46,7 @@ AppDispatcher.register((action) => {
             _state = {
                 ..._state,
                 loading: false,
-                // Assume que o payload contém os dados sob a chave 'animals'
-                dogs: action.payload.animals,
+                animals: action.payload.animals,
                 error: null
             };
             store.emitChange();
@@ -65,6 +57,40 @@ AppDispatcher.register((action) => {
                 ..._state,
                 loading: false,
                 error: action.payload.error
+            };
+            store.emitChange();
+            break;
+
+        // --- Fluxo de Adoção (NOVO) ---
+        case 'ADOPTION_START':
+            _state = {
+                ..._state,
+                adoptionRequests: {
+                    ..._state.adoptionRequests,
+                    [action.payload.animalId]: 'pending', // Marca como "pendente"
+                }
+            };
+            store.emitChange();
+            break;
+
+        case 'ADOPTION_SUCCESS':
+            _state = {
+                ..._state,
+                adoptionRequests: {
+                    ..._state.adoptionRequests,
+                    [action.payload.animalId]: 'success', // Marca como "sucesso"
+                }
+            };
+            store.emitChange();
+            break;
+
+        case 'ADOPTION_FAIL':
+            _state = {
+                ..._state,
+                adoptionRequests: {
+                    ..._state.adoptionRequests,
+                    [action.payload.animalId]: 'fail', // Marca como "falha"
+                }
             };
             store.emitChange();
             break;
