@@ -28,7 +28,7 @@ export default function AddAnimalScreen({ navigation }) {
         const newAnimal = {
             name,
             breed,
-            age,
+            age: Number(age),
             temperament,
             photoUrl,
             addedBy: "user-app",
