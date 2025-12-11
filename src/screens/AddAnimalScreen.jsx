@@ -1,3 +1,5 @@
+// src/screens/AddAnimalScreen.jsx
+
 import React, { useState } from "react";
 import {
     Text,
@@ -8,10 +10,14 @@ import {
     ScrollView,
     Image,
     View,
-    ActivityIndicator
+    ActivityIndicator,
+    PermissionsAndroid,
+    Platform, // Usado para permissões específicas de Android/iOS
 } from "react-native";
-import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
+
+// ✅ Importações Corrigidas para React Native CLI
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import Geolocation from 'react-native-geolocation-service';
 import { addAnimal } from "../api/animalsAPI";
 
 export default function AddAnimalScreen({ navigation }) {
@@ -24,69 +30,104 @@ export default function AddAnimalScreen({ navigation }) {
     const [location, setLocation] = useState("");
     const [loadingLocation, setLoadingLocation] = useState(false);
 
-    // --- FUNÇÃO DE FOTO (Corrigida para qualidade 0.1) ---
+    // --- UTILITY: TRATAMENTO DE PERMISSÕES PARA LOCALIZAÇÃO (Android) ---
+    const requestLocationPermission = async () => {
+        if (Platform.OS === 'android') {
+            try {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                    {
+                        title: "Permissão de Localização",
+                        message: "Precisamos de acesso à sua localização para registar o animal.",
+                        buttonNeutral: "Perguntar Depois",
+                        buttonNegative: "Cancelar",
+                        buttonPositive: "OK"
+                    }
+                );
+                return granted === PermissionsAndroid.RESULTS.GRANTED;
+            } catch (err) {
+                console.warn(err);
+                return false;
+            }
+        }
+        return true;
+    };
+
+
+    // ⭐️ LÓGICA CORRIGIDA ⭐️
+    // --- FUNÇÃO DE FOTO (RN Image Picker) ---
     const tirarFoto = async () => {
-        const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-        if (permissionResult.granted === false) {
+        // Pedir permissão para CÂMARA (específico do Android)
+        if (Platform.OS === 'android' && !(await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA))) {
             Alert.alert("Permissão negada", "Precisas de dar permissão para usar a câmara.");
             return;
         }
-        const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.1, // <--- CRÍTICO: 0.1 evita o erro 500 no RestDB
-            base64: true,
+
+        const options = {
+            mediaType: 'photo',
+            quality: 0.1,
+            includeBase64: true,
+        };
+
+        launchCamera(options, (response) => {
+            if (response.didCancel) {
+                console.log('Utilizador cancelou a foto');
+            } else if (response.errorMessage) {
+                Alert.alert("Erro da Câmara", response.errorMessage);
+            } else if (response.assets && response.assets.length > 0) {
+                setPhoto(`data:image/jpeg;base64,${response.assets[0].base64}`);
+            }
         });
-        if (!result.canceled) {
-            setPhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
-        }
     };
 
-    // --- FUNÇÃO DE GALERIA (Corrigida para qualidade 0.1) ---
+    // ⭐️ LÓGICA CORRIGIDA ⭐️
+    // --- FUNÇÃO DE GALERIA (RN Image Picker) ---
     const abrirGaleria = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 0.1, // <--- CRÍTICO: 0.1 evita o erro 500 no RestDB
-            base64: true,
+        const options = {
+            mediaType: 'photo',
+            quality: 0.1,
+            includeBase64: true,
+        };
+
+        launchImageLibrary(options, (response) => {
+            if (response.didCancel) {
+                console.log('Utilizador cancelou a galeria');
+            } else if (response.errorMessage) {
+                Alert.alert("Erro da Galeria", response.errorMessage);
+            } else if (response.assets && response.assets.length > 0) {
+                setPhoto(`data:image/jpeg;base64,${response.assets[0].base64}`);
+            }
         });
-        if (!result.canceled) {
-            setPhoto(`data:image/jpeg;base64,${result.assets[0].base64}`);
-        }
     };
 
-    // --- OBTER LOCALIZAÇÃO ---
+    // ⭐️ LÓGICA CORRIGIDA ⭐️
+    // --- OBTER LOCALIZAÇÃO (RN Geolocation Service) ---
     const obterLocalizacao = async () => {
         setLoadingLocation(true);
-        try {
-            let { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert("Permissão negada", "Precisamos de acesso à localização.");
-                setLoadingLocation(false);
-                return;
-            }
 
-            let locationResult = await Location.getCurrentPositionAsync({});
-            let addressResult = await Location.reverseGeocodeAsync({
-                latitude: locationResult.coords.latitude,
-                longitude: locationResult.coords.longitude
-            });
-
-            if (addressResult.length > 0) {
-                const item = addressResult[0];
-                const moradaFormatada = `${item.city || item.region}, ${item.country}`;
-                setLocation(moradaFormatada);
-            }
-
-        } catch (error) {
-            Alert.alert("Erro", "Não foi possível obter a localização.");
-        } finally {
+        // 1. Pedir permissão no Android
+        if (Platform.OS === 'android' && !(await requestLocationPermission())) {
             setLoadingLocation(false);
+            return;
         }
+
+        // 2. Chamar o serviço de localização
+        Geolocation.getCurrentPosition(
+            (position) => {
+                const coords = `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+                setLocation(coords);
+                setLoadingLocation(false);
+                Alert.alert("Localização Obtida", `Coordenadas: ${coords}`);
+            },
+            (error) => {
+                Alert.alert("Erro de Localização", `Não foi possível obter a localização. Verifique o GPS. (${error.message})`);
+                setLoadingLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
     };
 
+    // ⭐️ LÓGICA CORRIGIDA ⭐️
     async function handleSubmit() {
         if (!name || !breed) {
             Alert.alert("Erro", "O nome e a raça são obrigatórios.");
@@ -107,7 +148,7 @@ export default function AddAnimalScreen({ navigation }) {
         const result = await addAnimal(newAnimal);
 
         if (!result) {
-            Alert.alert("Erro", "Ocorreu um erro ao enviar. A foto pode ser muito pesada.");
+            Alert.alert("Erro", "Ocorreu um erro ao enviar. A foto pode ser muito pesada ou a API falhou.");
             return;
         }
 
@@ -115,6 +156,8 @@ export default function AddAnimalScreen({ navigation }) {
         navigation.goBack();
     }
 
+
+    // --- Renderização (UI - Inalterada) ---
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Adicionar Animal</Text>
@@ -139,7 +182,7 @@ export default function AddAnimalScreen({ navigation }) {
                 onChangeText={setBreed}
             />
 
-            {/* BLOCO IDADE */}
+            {/* BLOCO IDADE - CORRIGIDO (setState ligado) */}
             <Text style={styles.label}>Idade (anos)</Text>
             <TextInput
                 style={styles.input}
@@ -150,7 +193,7 @@ export default function AddAnimalScreen({ navigation }) {
                 keyboardType="numeric"
             />
 
-            {/* BLOCO TEMPERAMENTO */}
+            {/* BLOCO TEMPERAMENTO - CORRIGIDO (setState ligado) */}
             <Text style={styles.label}>Temperamento</Text>
             <TextInput
                 style={styles.input}
@@ -173,7 +216,7 @@ export default function AddAnimalScreen({ navigation }) {
 
                 <TextInput
                     style={[styles.input, styles.locationInput]}
-                    placeholder="A localização aparecerá aqui..."
+                    placeholder="Coordenadas aparecerão aqui..."
                     placeholderTextColor="#FFB6C1"
                     value={location}
                     onChangeText={setLocation}
@@ -205,6 +248,7 @@ export default function AddAnimalScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+    // ⚠️ Estilos permanecem inalterados
     container: {
         flexGrow: 1,
         padding: 25,
@@ -251,12 +295,12 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     locationButtonText: {
-        color: "#FFF",
+        color: "#FFF", // Cor do texto do botão de localização
         fontWeight: "bold",
         fontSize: 16,
     },
     locationInput: {
-        backgroundColor: "#FFF5F8",
+        backgroundColor: "#f3b4b4",
         fontStyle: "italic",
     },
     photoButtonsContainer: {

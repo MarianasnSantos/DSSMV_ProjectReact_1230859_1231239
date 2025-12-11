@@ -1,7 +1,7 @@
 // src/actions/PetActions.js
 
 import AppDispatcher from '../dispatchers/AppDispatcher';
-import { buscarCães } from '../API/theDogAPI';
+import { buscarCães } from '../api/theDogAPI';
 import { translateTemperament, translateLifeSpan } from '../utils/translations';
 import { updateUserFavorites } from '../services/UserService';
 import AuthStore from '../stores/AuthStore';
