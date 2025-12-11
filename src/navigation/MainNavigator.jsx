@@ -9,6 +9,9 @@ import ExploreScreen from '../screens/ExploreScreen';
 import HomeScreen from '../screens/HomeScreen';
 import AddAnimalScreen from "../screens/AddAnimalScreen";
 
+// ⭐️ NOVA IMPORTAÇÃO: Favoritos ⭐️
+import FavoritesScreen from '../screens/FavoriteScreen';
+
 const MainStack = createStackNavigator();
 
 const MainNavigator = () => {
@@ -42,6 +45,14 @@ const MainNavigator = () => {
                 options={{ title: 'Comunidade' }}
             />
 
+            {/* ⭐️ NOVA ROTA: FAVORITOS ⭐️ */}
+            <MainStack.Screen
+                name="Favorites" // Nome da rota usado no OpcoesScreen (navigation.navigate('Favorites'))
+                component={FavoritesScreen}
+                options={{ title: 'Meus Favoritos' }}
+            />
+
+            {/* ADICIONAR ANIMAL */}
             <MainStack.Screen
                 name="AddAnimal"
                 component={AddAnimalScreen}

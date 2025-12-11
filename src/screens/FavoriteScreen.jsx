@@ -17,6 +17,9 @@ import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 import { PetActions } from "../actions/PetActions";
 
+// ⭐️ IMPORTAR FUNÇÕES DE TRADUÇÃO ⭐️
+import { translateTemperament, translateLifeSpan } from "../utils/translations";
+
 // --- Funções Auxiliares FLUX (Para ligar ao Store) ---
 
 function usePetStoreState() {
@@ -61,12 +64,17 @@ export default function FavoritesScreen({ navigation }) {
         const photo = item.image?.url || item.photoUrl || "https://placehold.co/300x200";
         const displayBreed = item.breed || item.name;
 
+        // Traduzir Temperamento e Tempo de Vida
+        const translatedTemperament = translateTemperament(item.temperament);
+        const translatedLifeSpan = translateLifeSpan(item.life_span);
+
         // Renderizar o botão de favorito (o botão só remove, pois já está nos favoritos)
         const renderRemoveButton = () => (
             <TouchableOpacity
                 style={styles.favoriteButton}
                 onPress={() => PetActions.toggleFavorite(item.id)} // O toggleFavorite irá removê-lo
             >
+                {/* Coração preenchido para indicar que está nos favoritos e será removido */}
                 <Icon name={'heart'} size={30} color={'#FF69B4'} />
             </TouchableOpacity>
         );
@@ -86,17 +94,30 @@ export default function FavoritesScreen({ navigation }) {
 
                     <View style={styles.separator} />
 
-                    {/* Exibe o Temperamento e Idade/Tempo de Vida */}
+                    {/* ⭐️ DETALHES COM TRADUÇÕES E LAYOUT MELHORADO ⭐️ */}
                     <View style={styles.detailsContainer}>
                         {item.age && (
-                            <Text style={styles.detailValue}>Idade: {item.age} anos</Text>
+                            <View style={styles.detailItem}>
+                                <Text style={styles.detailLabel}>Idade:</Text>
+                                <Text style={styles.detailValue}>{item.age} anos</Text>
+                            </View>
                         )}
-                        {item.temperament && (
-                            <Text style={styles.detailValue}>Temp: {item.temperament}</Text>
+                        {translatedLifeSpan && (
+                            <View style={styles.detailItem}>
+                                <Text style={styles.detailLabel}>Tempo de Vida:</Text>
+                                <Text style={styles.detailValue}>{translatedLifeSpan}</Text>
+                            </View>
+                        )}
+                        {translatedTemperament && (
+                            <View style={styles.detailItemFull}>
+                                <Text style={styles.detailLabel}>Temperamento:</Text>
+                                <Text style={styles.detailValue}>{translatedTemperament}</Text>
+                            </View>
                         )}
                     </View>
+                    {/* FIM DETALHES */}
 
-                    <Text style={styles.removeText}>Clique no coração para remover</Text>
+                    <Text style={styles.removeText}>Clique na estrela para remover</Text>
                 </View>
             </View>
         );
@@ -115,6 +136,14 @@ export default function FavoritesScreen({ navigation }) {
 
     if (loading) {
         return <ActivityIndicator size="large" color="#FFC0CB" style={styles.loader} />;
+    }
+
+    if (error) {
+        return (
+            <View style={[styles.center, styles.container]}>
+                <Text style={styles.errorText}>Erro ao carregar animais: {error}</Text>
+            </View>
+        );
     }
 
     if (favoriteAnimals.length === 0) {
@@ -165,7 +194,13 @@ const styles = StyleSheet.create({
     separator: { height: 1, backgroundColor: '#FFB6C1', marginVertical: 10 },
 
     breedText: { fontSize: 18, color: '#FF69B4', marginBottom: 8, marginTop: -5, fontWeight: '500' },
-    detailsContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 5 },
+
+    // ⭐️ DETALHES (Nova Estrutura) ⭐️
+    detailsContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 10 },
+    detailItem: { width: '48%', marginBottom: 10 },
+    detailItemFull: { width: '100%', marginBottom: 10 }, // Para o Temperamento que é mais longo
+    detailLabel: { fontSize: 14, fontWeight: 'bold', color: '#FF69B4' },
     detailValue: { fontSize: 16, color: '#880E4F', marginTop: 2 },
+
     removeText: { fontSize: 12, color: '#FF69B4', textAlign: 'right', marginTop: 5 },
 });

@@ -3,9 +3,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-// O tipo StackNavigationProp e as interfaces são removidos.
-// A prop 'navigation' é acessada diretamente no JS.
-
 const OpcoesScreen = ({ navigation }) => {
     return (
         <View style={styles.container}>
@@ -15,7 +12,7 @@ const OpcoesScreen = ({ navigation }) => {
             {/* Opção 1: Feed de Animais para Adoção */}
             <TouchableOpacity
                 style={[styles.button, styles.adoptionButton]}
-                // A navegação usa as strings de nome de tela definidas no MainNavigator
+                // Navega para o Feed de Adoção
                 onPress={() => navigation.navigate('PetList')}
             >
                 <Text style={styles.buttonText}>🐶 Ver Animais para Adoção</Text>
@@ -29,6 +26,16 @@ const OpcoesScreen = ({ navigation }) => {
             >
                 <Text style={styles.buttonText}>💬 Comunidade e Partilha</Text>
                 <Text style={styles.buttonSubText}>Partilhe dicas e converse com outros tutores.</Text>
+            </TouchableOpacity>
+
+            {/* ⭐️ NOVO BOTÃO: Favoritos ⭐️ */}
+            <TouchableOpacity
+                style={[styles.button, styles.favoritesButton]}
+                // Assumindo que o nome da tela no Navigator é 'Favorites'
+                onPress={() => navigation.navigate('Favorites')}
+            >
+                <Text style={styles.buttonText}>❤️ Favoritos</Text>
+                <Text style={styles.buttonSubText}>Reveja os animais que curtiu.</Text>
             </TouchableOpacity>
         </View>
     );
@@ -64,11 +71,16 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 3,
     },
+    // Estilos existentes
     adoptionButton: {
-        backgroundColor: '#f3b4b4',
+        backgroundColor: '#f3b4b4', // Rosa
     },
     forumButton: {
-        backgroundColor: '#9be3ff',
+        backgroundColor: '#9be3ff', // Azul
+    },
+    // ⭐️ NOVO ESTILO: Botão Favoritos ⭐️
+    favoritesButton: {
+        backgroundColor: 'rgba(228,105,255,0.93)', // Rosa Choque
     },
     buttonText: {
         fontSize: 20,

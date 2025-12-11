@@ -1,5 +1,3 @@
-// src/screens/AnimalsFeedScreen.jsx
-
 import React, { useEffect, useState } from "react";
 import {
     View,
@@ -20,9 +18,7 @@ import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 
-// ❌ REMOVER: import Icon from 'react-native-vector-icons/FontAwesome';
-
-// ⭐️ NOVO: IMPORTAR A IMAGEM FAVORITAR.JPG ⭐️
+// ⭐️ IMAGEM FAVORITO (Certifique-se que o caminho e o nome do ficheiro estão corretos) ⭐️
 const FAVORITE_ICON = require('../assets/favoritar.jpg');
 
 // --- Funções Auxiliares ---
@@ -66,7 +62,12 @@ export default function AnimalsFeedScreen({ navigation }) {
 
     const { favorites, isLoggedIn } = getAuthData();
 
+    // ⭐️ NOVO ESTADO: Para gerir o feedback temporário ⭐️
+    const [feedbackMessage, setFeedbackMessage] = useState({ id: null, text: '' });
+
+
     useEffect(() => {
+        // 🚨 CRÍTICO: Esta chamada deve funcionar para carregar a lista!
         PetActions.loadAnimals();
     }, []);
 
@@ -116,25 +117,36 @@ export default function AnimalsFeedScreen({ navigation }) {
         );
     }
 
+    // ⭐️ NOVA FUNÇÃO: Trata o clique e o feedback ⭐️
+    const handleToggleFavorite = (animalId) => {
+        const isFavorite = favorites.includes(animalId);
+
+        PetActions.toggleFavorite(animalId);
+
+        const message = isFavorite ? 'Removido dos Favoritos!' : 'Adicionado aos Favoritos!';
+        setFeedbackMessage({ id: animalId, text: message });
+
+        setTimeout(() => {
+            setFeedbackMessage({ id: null, text: '' });
+        }, 2000);
+    };
+
+
     const renderFavoriteIcon = (item) => {
         if (!isLoggedIn) return null;
         const isFavorite = favorites.includes(item.id);
 
-        // ⭐️ Renderização do Ícone como IMAGEM ⭐️
-        // Se a imagem for transparente e você quiser cor, use tintColor,
-        // mas é melhor ter duas imagens (preenchida e vazia) para JPG/PNG.
-
-        // Assumindo que a imagem FAZER FAVORITO é a base:
+        // Se a imagem for transparente, o tintColor funcionará para mudar a cor do coração.
         const tintColorStyle = { tintColor: isFavorite ? '#FF69B4' : '#FFC0CB' };
 
         return (
             <TouchableOpacity
                 style={styles.favoriteButton}
-                onPress={() => PetActions.toggleFavorite(item.id)}
+                onPress={() => handleToggleFavorite(item.id)} // Usa a nova função
             >
                 <Image
                     source={FAVORITE_ICON}
-                    style={[styles.customIcon, tintColorStyle]} // Usar customIcon para tamanho
+                    style={[styles.customIcon, tintColorStyle]}
                 />
             </TouchableOpacity>
         );
@@ -230,6 +242,11 @@ export default function AnimalsFeedScreen({ navigation }) {
                                     {renderFavoriteIcon(item)}
                                 </View>
 
+                                {/* ⭐️ EXIBIR FEEDBACK TEMPORÁRIO AQUI ⭐️ */}
+                                {feedbackMessage.id === item.id && (
+                                    <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>
+                                )}
+
                                 {displayBreed && item.name !== displayBreed && (
                                     <Text style={styles.breedText}>{displayBreed}</Text>
                                 )}
@@ -264,13 +281,15 @@ export default function AnimalsFeedScreen({ navigation }) {
                 }}
             />
 
-            {/* BOTÃO FLUTUANTE */}
+            {/* BOTÃO FLUTUANTE (+) - Navega para AddAnimal (Manter) */}
             <TouchableOpacity
                 style={styles.fab}
                 onPress={() => navigation.navigate('AddAnimal')}
             >
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
+
+            {/* ❌ O BOTÃO FAVORITOS FOI REMOVIDO DAQUI E DEVE ESTAR NO TAB NAVIGATOR ❌ */}
         </View>
     );
 }
@@ -294,8 +313,18 @@ const styles = StyleSheet.create({
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
 
-    customIcon: { width: 30, height: 30, resizeMode: 'contain' }, // ⭐️ Usado para o ícone de imagem ⭐️
+    customIcon: { width: 30, height: 30, resizeMode: 'contain' },
     favoriteButton: { padding: 8 },
+
+    // ⭐️ NOVO ESTILO: Texto de Feedback Temporário ⭐️
+    feedbackText: {
+        fontSize: 14,
+        color: '#FF1493', // Deep Pink
+        textAlign: 'right',
+        marginTop: -5,
+        marginBottom: 5,
+        fontWeight: 'bold',
+    },
 
     separator: { height: 1, backgroundColor: '#FFB6C1', marginVertical: 10 },
     detailsContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 10 },
@@ -324,7 +353,10 @@ const styles = StyleSheet.create({
         borderColor: '#FFB6C1',
         marginLeft: 0,
         paddingLeft: 8,
-        fontSize: 14,
+        // ⭐️ TAMANHO DA LETRA MAIS PEQUENO ⭐️
+        fontSize: 10,
+        // ⭐️ CENTRALIZAR O TEXTO VISÍVEL NO COMPONENTE PICKER ⭐️
+        textAlign: 'center',
     },
 
     textInputStyle: {
@@ -347,13 +379,13 @@ const styles = StyleSheet.create({
 
     breedText: {
         fontSize: 18,
-        color: '#FF69B4', // Rosa Choque (para ser visível)
+        color: '#FF69B4',
         marginBottom: 8,
-        marginTop: -5, // Puxa para cima
+        marginTop: -5,
         fontWeight: '500',
     },
 
-    // BOTÃO FLUTUANTE
+    // BOTÃO FLUTUANTE (+)
     fab: {
         position: 'absolute',
         bottom: 30,
