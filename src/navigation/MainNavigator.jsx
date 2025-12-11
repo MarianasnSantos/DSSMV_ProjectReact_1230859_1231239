@@ -3,15 +3,14 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 
-import HomeScreen from '../screens/HomeScreen';
 import OpcoesScreen from '../screens/OpcoesScreen';
 import AnimalsFeedScreen from '../screens/AnimalsFeedScreen';
+import ExploreScreen from '../screens/ExploreScreen';
+import HomeScreen from '../screens/HomeScreen';
+import AddAnimalScreen from "../screens/AddAnimalScreen";
 
-// A tipagem 'MainStackParamList' é removida, 
-// o objeto MainStack é criado sem tipos explícitos.
 const MainStack = createStackNavigator();
 
-// A tipagem React.FC é removida.
 const MainNavigator = () => {
     return (
         <MainStack.Navigator
@@ -36,11 +35,17 @@ const MainNavigator = () => {
                 options={{ title: 'Animais para Adoção' }}
             />
 
-            {/* FUTURO FÓRUM */}
+            {/* FEED COMUNIDADE */}
             <MainStack.Screen
                 name="ForumFeed"
-                component={HomeScreen}
+                component={ExploreScreen}
                 options={{ title: 'Comunidade' }}
+            />
+
+            <MainStack.Screen
+                name="AddAnimal"
+                component={AddAnimalScreen}
+                options={{ title: "Adicionar Animal" }}
             />
 
             {/* HOME (placeholder) */}
