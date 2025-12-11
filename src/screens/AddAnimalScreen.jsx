@@ -18,7 +18,7 @@ import {
 // ✅ Importações Corrigidas para React Native CLI
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
-import { addAnimal } from "../api/animalsAPI";
+import { addAnimal } from "../api/animalsAPI"; // Assumindo que esta API existe
 
 export default function AddAnimalScreen({ navigation }) {
 
@@ -34,6 +34,7 @@ export default function AddAnimalScreen({ navigation }) {
     const requestLocationPermission = async () => {
         if (Platform.OS === 'android') {
             try {
+                // Solicita a permissão de localização fina (a mais precisa)
                 const granted = await PermissionsAndroid.request(
                     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
                     {
@@ -50,14 +51,12 @@ export default function AddAnimalScreen({ navigation }) {
                 return false;
             }
         }
-        return true;
+        return true; // iOS lida com permissões de forma diferente (Info.plist)
     };
 
 
-    // ⭐️ LÓGICA CORRIGIDA ⭐️
     // --- FUNÇÃO DE FOTO (RN Image Picker) ---
     const tirarFoto = async () => {
-        // Pedir permissão para CÂMARA (específico do Android)
         if (Platform.OS === 'android' && !(await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA))) {
             Alert.alert("Permissão negada", "Precisas de dar permissão para usar a câmara.");
             return;
@@ -65,7 +64,7 @@ export default function AddAnimalScreen({ navigation }) {
 
         const options = {
             mediaType: 'photo',
-            quality: 0.1,
+            quality: 0.1, // CRÍTICO: Baixa qualidade para upload rápido ao RestDB
             includeBase64: true,
         };
 
@@ -80,7 +79,6 @@ export default function AddAnimalScreen({ navigation }) {
         });
     };
 
-    // ⭐️ LÓGICA CORRIGIDA ⭐️
     // --- FUNÇÃO DE GALERIA (RN Image Picker) ---
     const abrirGaleria = async () => {
         const options = {
@@ -100,13 +98,16 @@ export default function AddAnimalScreen({ navigation }) {
         });
     };
 
-    // ⭐️ LÓGICA CORRIGIDA ⭐️
+    // ⭐️ LÓGICA CORRIGIDA E ROBUSTA ⭐️
     // --- OBTER LOCALIZAÇÃO (RN Geolocation Service) ---
     const obterLocalizacao = async () => {
         setLoadingLocation(true);
 
-        // 1. Pedir permissão no Android
-        if (Platform.OS === 'android' && !(await requestLocationPermission())) {
+        // 1. Pedir permissão: Se não tiver, sai
+        const hasPermission = await requestLocationPermission();
+
+        if (!hasPermission) {
+            Alert.alert("Permissão negada", "Não podemos obter a localização sem a permissão do GPS.");
             setLoadingLocation(false);
             return;
         }
@@ -120,6 +121,7 @@ export default function AddAnimalScreen({ navigation }) {
                 Alert.alert("Localização Obtida", `Coordenadas: ${coords}`);
             },
             (error) => {
+                // Erro pode ser: GPS desligado, timeout, etc.
                 Alert.alert("Erro de Localização", `Não foi possível obter a localização. Verifique o GPS. (${error.message})`);
                 setLoadingLocation(false);
             },
@@ -127,7 +129,7 @@ export default function AddAnimalScreen({ navigation }) {
         );
     };
 
-    // ⭐️ LÓGICA CORRIGIDA ⭐️
+    // --- FUNÇÃO DE SUBMISSÃO ---
     async function handleSubmit() {
         if (!name || !breed) {
             Alert.alert("Erro", "O nome e a raça são obrigatórios.");
@@ -157,7 +159,7 @@ export default function AddAnimalScreen({ navigation }) {
     }
 
 
-    // --- Renderização (UI - Inalterada) ---
+    // --- Renderização (UI) ---
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>Adicionar Animal</Text>
@@ -182,7 +184,7 @@ export default function AddAnimalScreen({ navigation }) {
                 onChangeText={setBreed}
             />
 
-            {/* BLOCO IDADE - CORRIGIDO (setState ligado) */}
+            {/* BLOCO IDADE */}
             <Text style={styles.label}>Idade (anos)</Text>
             <TextInput
                 style={styles.input}
@@ -193,7 +195,7 @@ export default function AddAnimalScreen({ navigation }) {
                 keyboardType="numeric"
             />
 
-            {/* BLOCO TEMPERAMENTO - CORRIGIDO (setState ligado) */}
+            {/* BLOCO TEMPERAMENTO */}
             <Text style={styles.label}>Temperamento</Text>
             <TextInput
                 style={styles.input}
@@ -248,7 +250,6 @@ export default function AddAnimalScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    // ⚠️ Estilos permanecem inalterados
     container: {
         flexGrow: 1,
         padding: 25,
@@ -295,12 +296,13 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     locationButtonText: {
-        color: "#FFF", // Cor do texto do botão de localização
+        color: "#FFF",
         fontWeight: "bold",
         fontSize: 16,
     },
     locationInput: {
-        backgroundColor: "#f3b4b4",
+        backgroundColor: "#FFFFFF", // Fundo Branco Puro (Alto Contraste)
+        color: "#880E4F",           // Cor de texto: Bordô Escuro (Alta Legibilidade)
         fontStyle: "italic",
     },
     photoButtonsContainer: {

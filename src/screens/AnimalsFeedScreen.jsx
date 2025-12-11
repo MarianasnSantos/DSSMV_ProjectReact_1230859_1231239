@@ -209,6 +209,7 @@ export default function AnimalsFeedScreen({ navigation }) {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => {
                     const photo = item.image?.url || item.photoUrl || "https://placehold.co/300x200";
+                    const displayBreed = item.breed || item.name;
                     return (
                         <View style={styles.card}>
                             <Image source={{ uri: photo }} style={styles.image} resizeMode="cover" />
@@ -217,6 +218,10 @@ export default function AnimalsFeedScreen({ navigation }) {
                                     <Text style={styles.name}>{item.name}</Text>
                                     {renderFavoriteIcon(item)}
                                 </View>
+
+                                {displayBreed && item.name !== displayBreed && (
+                                    <Text style={styles.breedText}>{displayBreed}</Text>
+                                )}
 
                                 <View style={styles.separator} />
 
@@ -293,6 +298,14 @@ const styles = StyleSheet.create({
     pendingButton: { backgroundColor: '#FFC0CB' },
     successButton: { backgroundColor: '#FF69B4' },
     failButton: { backgroundColor: '#FF1493' },
+
+    breedText: {
+        fontSize: 18,
+        color: '#FF69B4', // Rosa Choque (para ser visível)
+        marginBottom: 8,
+        marginTop: -5, // Puxa para cima
+        fontWeight: '500',
+    },
 
     // BOTÃO FLUTUANTE
     fab: {
