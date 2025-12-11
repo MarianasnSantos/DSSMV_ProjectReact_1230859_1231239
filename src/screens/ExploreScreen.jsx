@@ -10,7 +10,28 @@ export default function ExploreScreen() {
             try {
                 const response = await fetch("https://api.thedogapi.com/v1/breeds");
                 const data = await response.json();
-                setBreeds(data);
+
+                // Mapear cada raça para adicionar a URL da imagem real
+                const breedsWithImages = await Promise.all(
+                    data.map(async (breed) => {
+                        let imageUrl = breed.image?.url || null;
+
+                        // Se não tiver image.url, buscar pela reference_image_id
+                        if (!imageUrl && breed.reference_image_id) {
+                            try {
+                                const imgResponse = await fetch(`https://api.thedogapi.com/v1/images/${breed.reference_image_id}`);
+                                const imgData = await imgResponse.json();
+                                imageUrl = imgData.url;
+                            } catch {
+                                imageUrl = "https://placehold.co/300x200?text=Sem+imagem";
+                            }
+                        }
+
+                        return { ...breed, imageUrl: imageUrl || "https://placehold.co/300x200?text=Sem+imagem" };
+                    })
+                );
+
+                setBreeds(breedsWithImages);
             } catch (error) {
                 console.log("Erro ao carregar raças:", error);
             } finally {
@@ -24,8 +45,8 @@ export default function ExploreScreen() {
     if (loading) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color="#000" />
-                <Text>Carregando raças...</Text>
+                <ActivityIndicator size="large" color="#D81B60" />
+                <Text style={styles.loadingText}>Carregando cães...</Text>
             </View>
         );
     }
@@ -37,13 +58,13 @@ export default function ExploreScreen() {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
                     <View style={styles.card}>
-                        {item.image?.url && (
-                            <Image source={{ uri: item.image.url }} style={styles.image} />
-                        )}
-                        <Text style={styles.name}>{item.name}</Text>
-                        {item.temperament && (
-                            <Text style={styles.temperament}>{item.temperament}</Text>
-                        )}
+                        <Image source={{ uri: item.imageUrl }} style={styles.image} />
+                        <View style={styles.textContainer}>
+                            <Text style={styles.name}>{item.name}</Text>
+                            {item.temperament && (
+                                <Text style={styles.temperament}>{item.temperament}</Text>
+                            )}
+                        </View>
                     </View>
                 )}
             />
@@ -51,58 +72,24 @@ export default function ExploreScreen() {
     );
 }
 
-// --- ESTILOS NOVOS EM TONS DE ROSA BEBÉ ---
+// --- ESTILOS ROSA BEBÊ ---
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#FFF0F5", // Rosa Lavanda (Fundo muito clarinho)
-        paddingHorizontal: 15,
-        paddingTop: 10,
-    },
-    center: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#FFF0F5",
-    },
-    loadingText: {
-        marginTop: 10,
-        color: "#D81B60", // Rosa escuro
-        fontSize: 16,
-    },
+    container: { flex: 1, backgroundColor: "#FFF0F5", paddingHorizontal: 15, paddingTop: 10 },
+    center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFF0F5" },
+    loadingText: { marginTop: 10, color: "#D81B60", fontSize: 16 },
     card: {
-        backgroundColor: "#FFFFFF", // Branco para destacar do fundo rosa
+        backgroundColor: "#FFE4E1",
         marginVertical: 12,
-        borderRadius: 20, // Bordas bem redondas (estilo "fofo")
-        overflow: "hidden", // Garante que a imagem respeita as bordas redondas
-
-        // Sombra suave em rosa (efeito 3D leve)
+        borderRadius: 20,
+        overflow: "hidden",
         shadowColor: "#FF69B4",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 5,
-        elevation: 5, // Sombra para Android
+        elevation: 5,
     },
-    image: {
-        width: "100%",
-        height: 220,
-        resizeMode: "cover",
-    },
-    textContainer: {
-        padding: 15,
-    },
-    name: {
-        fontSize: 22,
-        fontWeight: "bold",
-        color: "#D81B60", // Rosa Forte (igual ao ícone)
-        marginBottom: 5,
-    },
-    temperament: {
-        fontSize: 14,
-        color: "#880E4F", // Um tom bordeaux/rosa escuro para leitura fácil
-        lineHeight: 20,
-    },
+    image: { width: "100%", height: 220, resizeMode: "cover" },
+    textContainer: { padding: 15 },
+    name: { fontSize: 22, fontWeight: "bold", color: "#D81B60", marginBottom: 5 },
+    temperament: { fontSize: 14, color: "#880E4F", lineHeight: 20 },
 });
