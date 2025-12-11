@@ -20,7 +20,10 @@ import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 
-const FAVORITE_ICON = require('../assets/favorito.png');
+// ❌ REMOVER: import Icon from 'react-native-vector-icons/FontAwesome';
+
+// ⭐️ NOVO: IMPORTAR A IMAGEM FAVORITAR.JPG ⭐️
+const FAVORITE_ICON = require('../assets/favoritar.jpg');
 
 // --- Funções Auxiliares ---
 function usePetStoreState() {
@@ -116,6 +119,14 @@ export default function AnimalsFeedScreen({ navigation }) {
     const renderFavoriteIcon = (item) => {
         if (!isLoggedIn) return null;
         const isFavorite = favorites.includes(item.id);
+
+        // ⭐️ Renderização do Ícone como IMAGEM ⭐️
+        // Se a imagem for transparente e você quiser cor, use tintColor,
+        // mas é melhor ter duas imagens (preenchida e vazia) para JPG/PNG.
+
+        // Assumindo que a imagem FAZER FAVORITO é a base:
+        const tintColorStyle = { tintColor: isFavorite ? '#FF69B4' : '#FFC0CB' };
+
         return (
             <TouchableOpacity
                 style={styles.favoriteButton}
@@ -123,7 +134,7 @@ export default function AnimalsFeedScreen({ navigation }) {
             >
                 <Image
                     source={FAVORITE_ICON}
-                    style={[styles.customIcon, { tintColor: isFavorite ? '#FF69B4' : '#FFC0CB' }]}
+                    style={[styles.customIcon, tintColorStyle]} // Usar customIcon para tamanho
                 />
             </TouchableOpacity>
         );
@@ -282,15 +293,16 @@ const styles = StyleSheet.create({
     info: { padding: 15 },
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
+
+    customIcon: { width: 30, height: 30, resizeMode: 'contain' }, // ⭐️ Usado para o ícone de imagem ⭐️
     favoriteButton: { padding: 8 },
-    customIcon: { width: 30, height: 30, resizeMode: 'contain' },
+
     separator: { height: 1, backgroundColor: '#FFB6C1', marginVertical: 10 },
     detailsContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 10 },
     detailItem: { width: '48%', marginBottom: 10 },
     detailLabel: { fontSize: 14, fontWeight: 'bold', color: '#FF69B4' },
     detailValue: { fontSize: 16, color: '#880E4F', marginTop: 2 },
 
-    // ⭐️ AJUSTE 1: filterContainer para garantir o espaçamento entre as colunas
     filterContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between', // Distribuir o espaço uniformemente
@@ -302,30 +314,27 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
     },
 
-    // ⭐️ AJUSTE 2: Picker agora tem fundo branco e largura ajustada ⭐️
     pickerStyle: {
         height: 40,
-        width: '45%', // Reduzir ligeiramente a largura para garantir espaço
+        width: '45%',
         color: '#333',
         backgroundColor: '#fff',
         borderRadius: 5,
         borderWidth: 1,
         borderColor: '#FFB6C1',
-        // ⭐️ NOVO: Adicionar padding horizontal para o texto (pode variar o efeito no Android) ⭐️
-        paddingHorizontal: 8,
-        marginLeft: 0, // Remover margens desnecessárias
+        marginLeft: 0,
+        paddingLeft: 8,
+        fontSize: 14,
     },
 
-    // ⭐️ AJUSTE 3: TextInput com largura ligeiramente menor para encaixar o Picker ⭐️
     textInputStyle: {
         height: 40,
-        width: '45%', // Ligeiramente menor que o Picker
+        width: '45%',
         borderColor: '#FFB6C1',
         borderWidth: 1,
         borderRadius: 5,
         paddingHorizontal: 10,
         backgroundColor: '#fff',
-        marginRight: 0, // Ajuste para margem
         color: '#880E4F'
     },
 

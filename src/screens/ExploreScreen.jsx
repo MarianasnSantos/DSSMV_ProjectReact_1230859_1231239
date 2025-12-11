@@ -60,7 +60,7 @@ export default function ExploreScreen() {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#D81B60" />
-                <Text style={styles.loadingText}>A carregarcães...</Text>
+                <Text style={styles.loadingText}>A carregar 🐾...</Text>
             </View>
         );
     }
