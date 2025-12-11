@@ -8,13 +8,11 @@ let _state = {
     loading: false,
     error: null,
     adoptionRequests: {},
-
-    // ESTADO PARA FILTROS
-    availableBreeds: [],
+    breeds: ['Todos'], // Raças vindas do TheDogAPI
     filters: {
         breed: null,
-        minAge: null, // Novo campo
-        temperament: null, // Novo campo
+        minAge: null,
+        temperament: null,
     },
 };
 
@@ -27,38 +25,67 @@ class PetStore extends EventEmitter {
 
 const store = new PetStore();
 
-// --- Registro no Dispatcher ---
+// ----------------------------
+// Registro no Dispatcher
+// ----------------------------
+
 AppDispatcher.register((action) => {
     switch (action.type) {
-        // --- Fluxo de Carregamento ---
+
+        // ----------------------------
+        // Carregar Animais
+        // ----------------------------
         case 'LOAD_ANIMALS_START':
             _state = { ..._state, loading: true, error: null };
             store.emitChange();
             break;
 
         case 'LOAD_ANIMALS_SUCCESS':
-            // ⭐️ Popula availableBreeds ao carregar os dados
-            const allBreeds = action.payload.animals
-                .map(a => a.name)
-                .filter((v, i, a) => a.indexOf(v) === i)
-                .sort();
+            const animals = action.payload?.animals || [];
+            const breeds = action.payload?.breeds || ['Todos'];
 
             _state = {
                 ..._state,
                 loading: false,
-                animals: action.payload.animals,
-                availableBreeds: ['Todos', ...allBreeds], // 'Todos' no topo
+                animals,
+                breeds,
                 error: null
             };
             store.emitChange();
             break;
+
 
         case 'LOAD_ANIMALS_FAIL':
             _state = { ..._state, loading: false, error: action.payload.error };
             store.emitChange();
             break;
 
-        // ⭐️ AÇÃO PARA DEFINIR FILTRO ⭐️
+        // ----------------------------
+        // Criar Novo Animal
+        // ----------------------------
+        case 'CREATE_ANIMAL_START':
+            _state = { ..._state, loading: true, error: null };
+            store.emitChange();
+            break;
+
+        case 'CREATE_ANIMAL_SUCCESS':
+            _state = {
+                ..._state,
+                loading: false,
+                animals: [..._state.animals, action.payload.animal],
+                error: null
+            };
+            store.emitChange();
+            break;
+
+        case 'CREATE_ANIMAL_FAIL':
+            _state = { ..._state, loading: false, error: action.payload.error };
+            store.emitChange();
+            break;
+
+        // ----------------------------
+        // Filtros
+        // ----------------------------
         case 'SET_FILTER':
             const { filterType, value } = action.payload;
             const cleanedValue = (value === 'Todos' || !value) ? null : value;
@@ -73,13 +100,15 @@ AppDispatcher.register((action) => {
             store.emitChange();
             break;
 
-        // --- Fluxo de Adoção (NOVO) ---
+        // ----------------------------
+        // Adoção
+        // ----------------------------
         case 'ADOPTION_START':
             _state = {
                 ..._state,
                 adoptionRequests: {
                     ..._state.adoptionRequests,
-                    [action.payload.animalId]: 'pending', // Marca como "pendente"
+                    [action.payload.animalId]: 'pending',
                 }
             };
             store.emitChange();
@@ -90,7 +119,7 @@ AppDispatcher.register((action) => {
                 ..._state,
                 adoptionRequests: {
                     ..._state.adoptionRequests,
-                    [action.payload.animalId]: 'success', // Marca como "sucesso"
+                    [action.payload.animalId]: 'success',
                 }
             };
             store.emitChange();
@@ -101,9 +130,17 @@ AppDispatcher.register((action) => {
                 ..._state,
                 adoptionRequests: {
                     ..._state.adoptionRequests,
-                    [action.payload.animalId]: 'fail', // Marca como "falha"
+                    [action.payload.animalId]: 'fail',
                 }
             };
+            store.emitChange();
+            break;
+
+        // ----------------------------
+        // Favoritos
+        // ----------------------------
+        case 'FAVORITE_SUCCESS':
+        case 'FAVORITE_FAIL':
             store.emitChange();
             break;
 
