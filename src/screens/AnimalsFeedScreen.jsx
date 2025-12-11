@@ -57,7 +57,7 @@ export default function AnimalsFeedScreen({ navigation }) {
         loading = false,
         error = null,
         adoptionRequests = {},
-        availableBreeds = [],
+        breeds = [],
         filters = {}
     } = usePetStoreState() || {};
 
@@ -180,14 +180,14 @@ export default function AnimalsFeedScreen({ navigation }) {
                     onValueChange={(itemValue) => PetActions.setFilter('breed', itemValue)}
                 >
                     <Picker.Item key="Todos" label="Todos" value="Todos" />
-                    {availableBreeds?.map(breed => (
+                    {breeds?.map(breed => (
                         <Picker.Item key={breed} label={breed} value={breed} />
                     ))}
                 </Picker>
 
                 <TextInput
                     style={styles.textInputStyle}
-                    placeholder="Idade Mínima (Anos)"
+                    placeholder="Idade (Anos)"
                     keyboardType="numeric"
                     placeholderTextColor="#FFB6C1"
                     value={filters.minAge}
@@ -289,9 +289,46 @@ const styles = StyleSheet.create({
     detailItem: { width: '48%', marginBottom: 10 },
     detailLabel: { fontSize: 14, fontWeight: 'bold', color: '#FF69B4' },
     detailValue: { fontSize: 16, color: '#880E4F', marginTop: 2 },
-    filterContainer: { flexDirection: 'row', justifyContent: 'space-around', padding: 5, backgroundColor: '#FFDDE6', borderBottomWidth: 1, borderBottomColor: '#FFB6C1' },
-    pickerStyle: { height: 40, width: '45%', color: '#333' },
-    textInputStyle: { height: 40, width: '45%', borderColor: '#FFB6C1', borderWidth: 1, borderRadius: 5, paddingHorizontal: 10, backgroundColor: '#fff', marginHorizontal: 5, color: '#880E4F' },
+
+    // ⭐️ AJUSTE 1: filterContainer para garantir o espaçamento entre as colunas
+    filterContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between', // Distribuir o espaço uniformemente
+        padding: 5,
+        backgroundColor: '#FFDDE6',
+        borderBottomWidth: 1,
+        borderBottomColor: '#FFB6C1',
+        width: '100%',
+        paddingHorizontal: 10,
+    },
+
+    // ⭐️ AJUSTE 2: Picker agora tem fundo branco e largura ajustada ⭐️
+    pickerStyle: {
+        height: 40,
+        width: '45%', // Reduzir ligeiramente a largura para garantir espaço
+        color: '#333',
+        backgroundColor: '#fff',
+        borderRadius: 5,
+        borderWidth: 1,
+        borderColor: '#FFB6C1',
+        // ⭐️ NOVO: Adicionar padding horizontal para o texto (pode variar o efeito no Android) ⭐️
+        paddingHorizontal: 8,
+        marginLeft: 0, // Remover margens desnecessárias
+    },
+
+    // ⭐️ AJUSTE 3: TextInput com largura ligeiramente menor para encaixar o Picker ⭐️
+    textInputStyle: {
+        height: 40,
+        width: '45%', // Ligeiramente menor que o Picker
+        borderColor: '#FFB6C1',
+        borderWidth: 1,
+        borderRadius: 5,
+        paddingHorizontal: 10,
+        backgroundColor: '#fff',
+        marginRight: 0, // Ajuste para margem
+        color: '#880E4F'
+    },
+
     temperamentSearch: { width: '95%', marginVertical: 5, alignSelf: 'center' },
     adoptButton: { backgroundColor: '#FFB6C1', padding: 12, borderRadius: 8, marginTop: 15, alignItems: 'center' },
     adoptButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
@@ -326,4 +363,3 @@ const styles = StyleSheet.create({
     },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
 });
-

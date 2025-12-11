@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator } from "react-native";
 
+// Importa a função de tradução
+import { translateTemperament } from "../utils/translations";
+
 export default function ExploreScreen() {
     const [breeds, setBreeds] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -8,15 +11,16 @@ export default function ExploreScreen() {
     useEffect(() => {
         async function loadBreeds() {
             try {
+                // Tenta carregar os dados da DogAPI
                 const response = await fetch("https://api.thedogapi.com/v1/breeds");
                 const data = await response.json();
 
-                // Mapear cada raça para adicionar a URL da imagem real
+                // Mapear cada raça para adicionar a URL da imagem real e a tradução
                 const breedsWithImages = await Promise.all(
                     data.map(async (breed) => {
                         let imageUrl = breed.image?.url || null;
 
-                        // Se não tiver image.url, buscar pela reference_image_id
+                        // Lógica para buscar a imagem se a URL principal faltar
                         if (!imageUrl && breed.reference_image_id) {
                             try {
                                 const imgResponse = await fetch(`https://api.thedogapi.com/v1/images/${breed.reference_image_id}`);
@@ -27,13 +31,23 @@ export default function ExploreScreen() {
                             }
                         }
 
-                        return { ...breed, imageUrl: imageUrl || "https://placehold.co/300x200?text=Sem+imagem" };
+                        // ⭐️ CORREÇÃO: Traduzir o Temperamento ⭐️
+                        const translatedTemperament = translateTemperament(breed.temperament);
+
+                        return {
+                            ...breed,
+                            imageUrl: imageUrl || "https://placehold.co/300x200?text=Sem+imagem",
+                            // ⭐️ CORREÇÃO: Incluir o campo traduzido no estado ⭐️
+                            translatedTemperament: translatedTemperament
+                        };
                     })
                 );
 
                 setBreeds(breedsWithImages);
             } catch (error) {
                 console.log("Erro ao carregar raças:", error);
+                // Tratar o erro de forma mais amigável
+                // Poderia definir um estado de erro aqui se estivesse a usar um Store.
             } finally {
                 setLoading(false);
             }
@@ -46,7 +60,7 @@ export default function ExploreScreen() {
         return (
             <View style={styles.center}>
                 <ActivityIndicator size="large" color="#D81B60" />
-                <Text style={styles.loadingText}>Carregando cães...</Text>
+                <Text style={styles.loadingText}>A carregarcães...</Text>
             </View>
         );
     }
@@ -61,8 +75,9 @@ export default function ExploreScreen() {
                         <Image source={{ uri: item.imageUrl }} style={styles.image} />
                         <View style={styles.textContainer}>
                             <Text style={styles.name}>{item.name}</Text>
-                            {item.temperament && (
-                                <Text style={styles.temperament}>{item.temperament}</Text>
+                            {/* ⭐️ USAR O CAMPO TRADUZIDO ⭐️ */}
+                            {item.translatedTemperament && (
+                                <Text style={styles.temperament}>{item.translatedTemperament}</Text>
                             )}
                         </View>
                     </View>
