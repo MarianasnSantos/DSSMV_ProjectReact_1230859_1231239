@@ -1,80 +1,60 @@
-import React, { useState, useCallback } from "react";
-import {
-    View,
-    Text,
-    FlatList,
-    Image,
-    StyleSheet,
-    ActivityIndicator,
-    TouchableOpacity,
-    RefreshControl
-} from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import React, { useEffect, useState } from "react";
+import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator } from "react-native";
 
-// IMPORTANTE: O caminho da pasta deve ser 'api' (minúsculo)
-import { getAnimals } from "../api/animalsAPI";
+const LIMIT = 10; // quantos cães carregar por vez
 
-export default function AnimalsFeedScreen({ navigation }) {
-    const [animals, setAnimals] = useState([]);
+export default function ExploreScreen() {
+    const [breeds, setBreeds] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    const [page, setPage] = useState(0); // página atual
+    const [hasMore, setHasMore] = useState(true); // se há mais para carregar
 
-    // Função para carregar os dados
-    const loadData = async () => {
-        // Se já estivermos a carregar (refresh), não mostramos o spinner grande
-        if (!refreshing) setLoading(true);
+    async function loadBreeds(nextPage = 0) {
+        if (!hasMore && nextPage !== 0) return;
 
-        const data = await getAnimals();
-        setAnimals(data);
+        try {
+            if (nextPage === 0) setLoading(true);
 
-        setLoading(false);
-        setRefreshing(false);
+            const response = await fetch(
+                `https://api.thedogapi.com/v1/images/search?limit=${LIMIT}&has_breeds=1&page=${nextPage}`
+            );
+            const data = await response.json();
+
+            const breedsWithImages = data
+                .filter(item => item.breeds && item.breeds.length > 0)
+                .map(item => ({
+                    id: item.breeds[0].id,
+                    name: item.breeds[0].name,
+                    temperament: item.breeds[0].temperament,
+                    imageUrl: item.url,
+                }));
+
+            setBreeds(prev => nextPage === 0 ? breedsWithImages : [...prev, ...breedsWithImages]);
+
+            if (breedsWithImages.length < LIMIT) setHasMore(false); // não há mais dados
+        } catch (error) {
+            console.log("Erro ao carregar raças:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        loadBreeds(0);
+    }, []);
+
+    const handleLoadMore = () => {
+        if (loading || !hasMore) return;
+        const nextPage = page + 1;
+        setPage(nextPage);
+        loadBreeds(nextPage);
     };
 
-    // useFocusEffect: Corre sempre que o ecrã ganha "foco" (quando voltas para aqui)
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [])
-    );
-
-    // Função para renderizar cada cartão de animal
-    const renderItem = ({ item }) => (
-        <View style={styles.card}>
-            {/* Foto do Animal (ou placeholder se não houver link) */}
-            <Image
-                source={{ uri: item.photoUrl ? item.photoUrl : 'https://placehold.co/400x300/png?text=Sem+Foto' }}
-                style={styles.image}
-                resizeMode="cover"
-            />
-
-            <div style={styles.infoContainer}>
-                <View style={styles.headerRow}>
-                    <Text style={styles.name}>{item.name}</Text>
-                    <Text style={styles.age}>{item.age} anos</Text>
-                </View>
-
-                <Text style={styles.breed}>{item.breed}</Text>
-
-                {/* Mostra temperamento apenas se existir */}
-                {item.temperament ? (
-                    <Text style={styles.temperament} numberOfLines={2}>
-                        ❤️ {item.temperament}
-                    </Text>
-                ) : null}
-
-                <TouchableOpacity style={styles.adoptButton}>
-                    <Text style={styles.adoptButtonText}>Quero Adotar</Text>
-                </TouchableOpacity>
-            </div>
-        </View>
-    );
-
-    if (loading && !refreshing) {
+    if (loading && page === 0) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator size="large" color="#ff8fb1" />
-                <Text style={{ marginTop: 10, color: "#555" }}>A procurar patudos...</Text>
+                <ActivityIndicator size="large" color="#D81B60" />
+                <Text style={styles.loadingText}>Carregando raças...</Text>
             </View>
         );
     }
@@ -82,140 +62,46 @@ export default function AnimalsFeedScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <FlatList
-                data={animals}
-                keyExtractor={(item) => item._id || Math.random().toString()} // _id é gerado pelo RestDB
-                renderItem={renderItem}
-                contentContainerStyle={styles.listContent}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={() => {
-                        setRefreshing(true);
-                        loadData();
-                    }} colors={["#ff8fb1"]} />
-                }
-                ListEmptyComponent={
-                    <View style={styles.center}>
-                        <Text style={styles.emptyText}>Ainda não há animais para adoção.</Text>
-                        <Text style={styles.emptySubText}>Sê o primeiro a adicionar um!</Text>
+                data={breeds}
+                keyExtractor={(item, index) => item.id + "-" + index}
+                renderItem={({ item }) => (
+                    <View style={styles.card}>
+                        <Image source={{ uri: item.imageUrl }} style={styles.image} />
+                        <View style={styles.textContainer}>
+                            <Text style={styles.name}>{item.name}</Text>
+                            {item.temperament && (
+                                <Text style={styles.temperament}>{item.temperament}</Text>
+                            )}
+                        </View>
                     </View>
-                }
+                )}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5} // quando chegar a 50% do final, carrega mais
+                ListFooterComponent={loading && hasMore ? (
+                    <ActivityIndicator size="large" color="#D81B60" style={{ margin: 15 }} />
+                ) : null}
             />
-
-            {/* Botão Flutuante para Adicionar (+), se quiseres usar aqui */}
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => navigation.navigate("AddAnimal")} // Confirma se o nome da rota é "AddAnimal"
-            >
-                <Text style={styles.fabText}>+</Text>
-            </TouchableOpacity>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#fff0f5", // Fundo rosa muito clarinho
-    },
-    listContent: {
-        padding: 15,
-        paddingBottom: 100, // Espaço extra para o botão flutuante não tapar o último item
-    },
-    center: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-    },
+    container: { flex: 1, backgroundColor: "#FFF0F5", paddingHorizontal: 15, paddingTop: 10 },
+    center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFF0F5" },
+    loadingText: { marginTop: 10, color: "#D81B60", fontSize: 16 },
     card: {
-        backgroundColor: "#fff",
-        borderRadius: 15,
-        marginBottom: 20,
+        backgroundColor: "#FFFFFF",
+        marginVertical: 12,
+        borderRadius: 20,
         overflow: "hidden",
-        elevation: 3, // Sombra no Android
-        shadowColor: "#000", // Sombra no iOS
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    image: {
-        width: "100%",
-        height: 200,
-    },
-    infoContainer: {
-        padding: 15,
-    },
-    headerRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 5,
-    },
-    name: {
-        fontSize: 22,
-        fontWeight: "bold",
-        color: "#333",
-    },
-    age: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#ff8fb1",
-        backgroundColor: "#fff0f5",
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 8,
-    },
-    breed: {
-        fontSize: 16,
-        color: "#666",
-        marginBottom: 8,
-        fontStyle: "italic",
-    },
-    temperament: {
-        fontSize: 14,
-        color: "#777",
-        marginBottom: 15,
-    },
-    adoptButton: {
-        backgroundColor: "#ff8fb1",
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: "center",
-    },
-    adoptButtonText: {
-        color: "#fff",
-        fontWeight: "bold",
-        fontSize: 16,
-    },
-    // Estilo do Botão Flutuante (+)
-    fab: {
-        position: "absolute",
-        bottom: 20,
-        right: 20,
-        backgroundColor: "#ff5c8d",
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        justifyContent: "center",
-        alignItems: "center",
-        elevation: 5,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.3,
+        shadowColor: "#FF69B4",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
         shadowRadius: 5,
+        elevation: 5,
     },
-    fabText: {
-        color: "#fff",
-        fontSize: 32,
-        marginTop: -4, // Pequeno ajuste visual
-    },
-    emptyText: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#888",
-    },
-    emptySubText: {
-        fontSize: 14,
-        color: "#aaa",
-        marginTop: 5,
-    }
+    image: { width: "100%", height: 220, resizeMode: "cover" },
+    textContainer: { padding: 15 },
+    name: { fontSize: 22, fontWeight: "bold", color: "#D81B60", marginBottom: 5 },
+    temperament: { fontSize: 14, color: "#880E4F", lineHeight: 20 },
 });
