@@ -1,26 +1,61 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, Image, StyleSheet, ActivityIndicator } from "react-native";
+// src/screens/ExploreScreen.jsx
 
-// Importa a função de tradução
+import React, { useEffect, useState } from "react";
+import {
+    View,
+    Text,
+    FlatList,
+    Image,
+    StyleSheet,
+    ActivityIndicator,
+    TouchableOpacity
+} from "react-native";
 import { translateTemperament } from "../utils/translations";
+
+// Importações FLUX para Favoritos
+import AuthStore from "../stores/AuthStore";
+import { PetActions } from "../actions/PetActions";
+
+const FAVORITE_ICON = require('../assets/favoritar.jpg');
+
+
+// --- Funções Auxiliares FLUX ---
+const getAuthData = () => {
+    const { favorites, isLoggedIn } = AuthStore.getState();
+    return {
+        favorites: favorites || [],
+        isLoggedIn
+    };
+};
+
+function useAuthStoreState() {
+    const [state, setState] = useState(getAuthData());
+    useEffect(() => {
+        const handleChange = () => { setState(getAuthData()); };
+        AuthStore.addChangeListener(handleChange);
+        return () => AuthStore.removeListener(handleChange);
+    }, []);
+    return state;
+}
 
 export default function ExploreScreen() {
     const [breeds, setBreeds] = useState([]);
     const [loading, setLoading] = useState(true);
+    // ⭐️ IGUAL AO ANIMALSFEEDSCREEN ⭐️
+    const [feedbackMessage, setFeedbackMessage] = useState({ id: null, text: '' });
+
+    const { favorites, isLoggedIn } = useAuthStoreState();
 
     useEffect(() => {
         async function loadBreeds() {
             try {
-                // Tenta carregar os dados da DogAPI
                 const response = await fetch("https://api.thedogapi.com/v1/breeds");
                 const data = await response.json();
 
-                // Mapear cada raça para adicionar a URL da imagem real e a tradução
                 const breedsWithImages = await Promise.all(
                     data.map(async (breed) => {
                         let imageUrl = breed.image?.url || null;
 
-                        // Lógica para buscar a imagem se a URL principal faltar
                         if (!imageUrl && breed.reference_image_id) {
                             try {
                                 const imgResponse = await fetch(`https://api.thedogapi.com/v1/images/${breed.reference_image_id}`);
@@ -31,13 +66,11 @@ export default function ExploreScreen() {
                             }
                         }
 
-                        // ⭐️ CORREÇÃO: Traduzir o Temperamento ⭐️
                         const translatedTemperament = translateTemperament(breed.temperament);
 
                         return {
                             ...breed,
                             imageUrl: imageUrl || "https://placehold.co/300x200?text=Sem+imagem",
-                            // ⭐️ CORREÇÃO: Incluir o campo traduzido no estado ⭐️
                             translatedTemperament: translatedTemperament
                         };
                     })
@@ -46,8 +79,6 @@ export default function ExploreScreen() {
                 setBreeds(breedsWithImages);
             } catch (error) {
                 console.log("Erro ao carregar raças:", error);
-                // Tratar o erro de forma mais amigável
-                // Poderia definir um estado de erro aqui se estivesse a usar um Store.
             } finally {
                 setLoading(false);
             }
@@ -55,6 +86,46 @@ export default function ExploreScreen() {
 
         loadBreeds();
     }, []);
+
+
+    // ⭐️ FUNÇÃO DE TOGGLE COM A MENSAGEM CORRETA ⭐️
+    const renderFavoriteIcon = (item) => {
+        if (!isLoggedIn) return null;
+
+        const favoriteId = item.id.toString();
+        const isFavorite = favorites.includes(favoriteId);
+        const iconColor = isFavorite ? '#FF69B4' : '#FFC0CB';
+
+        const handleToggleFavorite = () => {
+            // Verifica o estado ANTES da ação para escolher a mensagem
+            const isCurrentlyFavorite = favorites.includes(favoriteId);
+
+            PetActions.toggleFavorite(favoriteId);
+
+            // ⭐️ MENSAGEM IDÊNTICA AO ANIMALSFEEDSCREEN ⭐️
+            const message = isCurrentlyFavorite ? 'Removido dos Favoritos!' : 'Adicionado aos Favoritos!';
+            setFeedbackMessage({ id: favoriteId, text: message });
+
+            // Limpar a mensagem após 2 segundos (ajustado para igual ao AnimalsFeedScreen)
+            setTimeout(() => setFeedbackMessage({ id: null, text: '' }), 2000);
+        };
+
+
+        return (
+            <TouchableOpacity
+                style={styles.favoriteButton}
+                onPress={handleToggleFavorite}
+            >
+                <Image
+                    source={FAVORITE_ICON}
+                    style={[
+                        styles.customIcon,
+                        { tintColor: iconColor }
+                    ]}
+                />
+            </TouchableOpacity>
+        );
+    };
 
     if (loading) {
         return (
@@ -74,8 +145,17 @@ export default function ExploreScreen() {
                     <View style={styles.card}>
                         <Image source={{ uri: item.imageUrl }} style={styles.image} />
                         <View style={styles.textContainer}>
-                            <Text style={styles.name}>{item.name}</Text>
-                            {/* ⭐️ USAR O CAMPO TRADUZIDO ⭐️ */}
+
+                            <View style={styles.headerContainer}>
+                                <Text style={styles.name}>{item.name}</Text>
+                                {renderFavoriteIcon(item)}
+                            </View>
+
+                            {/* ⭐️ EXIBIR FEEDBACK TEMPORÁRIO AQUI (IGUAL AO ANIMALSFEEDSCREEN) ⭐️ */}
+                            {feedbackMessage.id === item.id.toString() && (
+                                <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>
+                            )}
+
                             {item.translatedTemperament && (
                                 <Text style={styles.temperament}>{item.translatedTemperament}</Text>
                             )}
@@ -105,6 +185,30 @@ const styles = StyleSheet.create({
     },
     image: { width: "100%", height: 220, resizeMode: "cover" },
     textContainer: { padding: 15 },
-    name: { fontSize: 22, fontWeight: "bold", color: "#D81B60", marginBottom: 5 },
+
+    customIcon: {
+        width: 30,
+        height: 30,
+        resizeMode: 'contain',
+    },
+    headerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 5
+    },
+    name: { fontSize: 22, fontWeight: "bold", color: "#D81B60" },
+    favoriteButton: { padding: 8 },
+
     temperament: { fontSize: 14, color: "#880E4F", lineHeight: 20 },
+
+    // ⭐️ ESTILO DE FEEDBACK IDÊNTICO AO ANIMALSFEEDSCREEN ⭐️
+    feedbackText: {
+        fontSize: 14,
+        color: '#FF1493', // Deep Pink
+        textAlign: 'right',
+        marginTop: -5,
+        marginBottom: 5,
+        fontWeight: 'bold',
+    },
 });
