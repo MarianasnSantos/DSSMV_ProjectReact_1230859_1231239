@@ -49,7 +49,7 @@ function usePetStoreState() {
 export default function AddAnimalScreen({ navigation }) {
 
     const [name, setName] = useState("");
-    const [breed, setBreed] = useState("Raça Indefinida"); // ⭐️ Estado inicial para o Picker ⭐️
+    const [breed, setBreed] = useState("Sem Raça"); // ⭐️ Estado inicial para o Picker ⭐️
     const [age, setAge] = useState("");
     const [temperament, setTemperament] = useState("");
     const [contactNumber, setContactNumber] = useState("");
@@ -167,7 +167,7 @@ export default function AddAnimalScreen({ navigation }) {
         setIsSaving(true);
 
         // A Raça será o valor selecionado no Picker (breed)
-        const finalBreed = breed === "Raça Indefinida" ? "" : breed;
+        const finalBreed = breed === "Sem Raça" ? "" : breed;
 
         const newAnimal = {
             name,
@@ -218,7 +218,7 @@ export default function AddAnimalScreen({ navigation }) {
                     style={styles.pickerInput}
                     onValueChange={(itemValue) => setBreed(itemValue)}
                 >
-                    <Picker.Item key="Indefinida" label="Raça Indefinida" value="Raça Indefinida" />
+                    <Picker.Item key="SemRaça" label="Sem Raça" value="Sem Raça" />
 
                     {/* Filtra o "Todos" que vem do PetStore */}
                     {breeds?.filter(b => b !== 'Todos').map((b, index) => (

@@ -43,6 +43,18 @@ const handleAdoption = (animalId) => {
     PetActions.startAdoption(animalId, userId);
 };
 
+const formatDate = (isoString) => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Mês é 0-indexado
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (e) {
+        return '';
+    }
+};
 export default function AnimalsFeedScreen({ navigation }) {
     const {
         animals = [],
@@ -65,10 +77,18 @@ export default function AnimalsFeedScreen({ navigation }) {
         let filteredList = animals;
 
         // Filtro Raça
-        if (filters.breed && filters.breed !== 'Raças') {
-            filteredList = filteredList.filter(animal =>
-                (animal.breed === filters.breed) || (animal.name === filters.breed)
-            );
+        if (filters.breed && filters.breed !== 'Todos') {
+
+            // ⭐️ MUDANÇA AQUI: Usar "Sem Raça" ⭐️
+            if (filters.breed === 'Sem Raça') {
+                // Procura animais com o campo breed vazio ou nulo (o que foi salvo como "Sem Raça")
+                filteredList = filteredList.filter(animal => !animal.breed || animal.breed.trim() === '');
+            } else {
+                // Lógica de filtro por raça específica (existente)
+                filteredList = filteredList.filter(animal =>
+                    (animal.breed === filters.breed) || (animal.name === filters.breed)
+                );
+            }
         }
 
         // Filtro Idade
@@ -145,6 +165,7 @@ export default function AnimalsFeedScreen({ navigation }) {
                     onValueChange={(val) => PetActions.setFilter('breed', val)}
                 >
                     <Picker.Item label="Todos" value="Todos" />
+                    <Picker.Item label="Sem Raça" value="Sem Raça" />
                     {breeds?.map((b, index) => (
                         <Picker.Item key={index} label={b} value={b} />
                     ))}
@@ -198,6 +219,12 @@ export default function AnimalsFeedScreen({ navigation }) {
                                 {feedbackMessage.id === item.id && <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>}
 
                                 <Text style={styles.breedText}>{item.breed || "Raça desconhecida"}</Text>
+
+                                {item.createdAt && (
+                                    <Text style={styles.dateText}>
+                                        Publicado em: {formatDate(item.createdAt)}
+                                    </Text>
+                                )}
                                 {item.addedBy && <Text style={styles.authorText}>Por: {item.addedBy}</Text>}
 
                                 <View style={styles.detailsContainer}>
@@ -243,6 +270,7 @@ const styles = StyleSheet.create({
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
     breedText: { fontSize: 18, color: '#880E4F', marginBottom: 5 },
+    dateText: { fontSize: 14, color: '#FF69B4', fontStyle: 'italic', marginBottom: 5 },
     authorText: { fontSize: 14, color: '#D81B60', fontStyle: 'italic', marginBottom: 10 },
     detailsContainer: { flexDirection: 'row', gap: 15, marginBottom: 10 },
     detailValue: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
