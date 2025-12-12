@@ -11,6 +11,7 @@ import { Picker } from '@react-native-picker/picker';
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
+import { translateTemperament } from "../utils/translations";
 
 const FAVORITE_ICON = require('../assets/favoritar.jpg'); // Caminho corrigido
 
@@ -198,6 +199,7 @@ export default function AnimalsFeedScreen({ navigation }) {
                 renderItem={({ item }) => {
                     const photo = item.photoUrl || item.image?.url || "https://placehold.co/300x200";
                     const isFav = favorites.includes(item.id);
+                    const translatedTemperament = translateTemperament(item.temperament);
 
                     return (
                         <View style={styles.card}>
@@ -225,11 +227,15 @@ export default function AnimalsFeedScreen({ navigation }) {
                                         Publicado em: {formatDate(item.createdAt)}
                                     </Text>
                                 )}
+                                {translatedTemperament && (
+                                    <Text style={styles.detailValueFull}>
+                                        {translatedTemperament}
+                                    </Text>
+                                )}
                                 {item.addedBy && <Text style={styles.authorText}>Por: {item.addedBy}</Text>}
 
                                 <View style={styles.detailsContainer}>
                                     <Text style={styles.detailValue}>{item.age ? item.age + " anos" : "Jovem"}</Text>
-                                    <Text style={styles.detailValue}>{item.temperament}</Text>
                                     {item.contactNumber && (
                                         // Usamos o contactText para dar um estilo próprio
                                         <Text style={styles.contactText}>
@@ -272,14 +278,19 @@ const styles = StyleSheet.create({
     breedText: { fontSize: 18, color: '#880E4F', marginBottom: 5 },
     dateText: { fontSize: 14, color: '#FF69B4', fontStyle: 'italic', marginBottom: 5 },
     authorText: { fontSize: 14, color: '#D81B60', fontStyle: 'italic', marginBottom: 10 },
-    detailsContainer: { flexDirection: 'row', gap: 15, marginBottom: 10 },
-    detailValue: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
-    contactText: {
+    detailsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap', // ⭐️ NOVO: Permite que os itens quebrem a linha ⭐️
+        gap: 15, // Mantém o espaçamento entre itens na mesma linha
+        marginBottom: 10,
+    },
+    detailValueFull: {
         fontSize: 14,
-        color: '#D81B60', // Rosa Escuro para destacar
-        marginTop: 5,
+        color: '#880E4F',
         fontWeight: 'bold',
-        width: '100%', // Para garantir que ocupa a largura total no container
+        width: '100%', // ⭐️ FORÇA A OCUPAR UMA LINHA INTEIRA ⭐️
+        marginTop: 5,
+        marginBottom: 5,
     },
     adoptButton: { backgroundColor: '#FFB6C1', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 5 },
     adoptButtonText: { color: '#fff', fontWeight: 'bold' },
@@ -331,4 +342,18 @@ const styles = StyleSheet.create({
     customIcon: { width: 30, height: 30 },
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
+    detailValue: {
+        fontSize: 14,
+        color: '#880E4F',
+        fontWeight: 'bold',
+        // ⭐️ Ocupar menos espaço para Idade (opcional) ⭐️
+        width: 'auto',
+    },
+    contactText: {
+        fontSize: 14,
+        color: '#D81B60',
+        marginTop: 5,
+        fontWeight: 'bold',
+        width: '100%', // ⭐️ Garante que o Contacto também ocupa uma linha inteira ⭐️
+    },
 });
