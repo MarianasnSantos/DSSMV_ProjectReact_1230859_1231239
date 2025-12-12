@@ -4,18 +4,19 @@ import React, { useEffect, useState } from "react";
 import {
     View, Text, FlatList, Image, ActivityIndicator, StyleSheet,
     TouchableOpacity, TextInput, Alert,
-    // ⭐️ IMPORTAÇÕES ADICIONADAS ⭐️
     KeyboardAvoidingView, Platform
 } from "react-native";
 import { Picker } from '@react-native-picker/picker';
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
+
+// ⭐️ Funções externas necessárias ⭐️
 import { translateTemperament } from "../utils/translations";
 
-const FAVORITE_ICON = require('../assets/favoritar.jpg'); // Caminho corrigido
+const FAVORITE_ICON = require('../assets/favoritar.jpg');
 
-// --- Hooks/Auxiliares (Inalterado) ---
+// --- Hooks/Auxiliares ---
 function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
@@ -44,18 +45,21 @@ const handleAdoption = (animalId) => {
     PetActions.startAdoption(animalId, userId);
 };
 
+// Auxiliar para formatar a data ISO
 const formatDate = (isoString) => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
         const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0'); // Mês é 0-indexado
+        const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
         return `${day}/${month}/${year}`;
     } catch (e) {
         return '';
     }
 };
+
+// ⭐️ Componente Principal ⭐️
 export default function AnimalsFeedScreen({ navigation }) {
     const {
         animals = [],
@@ -73,19 +77,33 @@ export default function AnimalsFeedScreen({ navigation }) {
         PetActions.loadAnimals();
     }, []);
 
-    // --- FILTROS (Inalterado) ---
+    // ⭐️ LÓGICA DE NAVEGAÇÃO E DELEÇÃO (dentro do componente) ⭐️
+    const handleEditAnimal = (animal) => {
+        // Navega e passa o objeto animal para o modo de edição
+        navigation.navigate('AddAnimal', { animalToEdit: animal });
+    };
+
+    const handleDeleteAnimal = (animalId, ownerId) => {
+        Alert.alert("Apagar", "Tens a certeza?", [
+            { text: "Cancelar" },
+            {
+                text: "Sim, Apagar",
+                onPress: () => PetActions.deleteAnimal(animalId, ownerId)
+            }
+        ]);
+    };
+    // -----------------------------------------------------------
+
+
+    // --- FILTROS ---
     const getFilteredAnimals = () => {
         let filteredList = animals;
 
         // Filtro Raça
         if (filters.breed && filters.breed !== 'Todos') {
-
-            // ⭐️ MUDANÇA AQUI: Usar "Sem Raça" ⭐️
             if (filters.breed === 'Sem Raça') {
-                // Procura animais com o campo breed vazio ou nulo (o que foi salvo como "Sem Raça")
                 filteredList = filteredList.filter(animal => !animal.breed || animal.breed.trim() === '');
             } else {
-                // Lógica de filtro por raça específica (existente)
                 filteredList = filteredList.filter(animal =>
                     (animal.breed === filters.breed) || (animal.name === filters.breed)
                 );
@@ -116,7 +134,7 @@ export default function AnimalsFeedScreen({ navigation }) {
 
     const filteredAnimals = getFilteredAnimals();
 
-    // --- FAVORITOS (Inalterado) ---
+    // --- FAVORITOS ---
     const handleToggleFavorite = (id) => {
         PetActions.toggleFavorite(id);
         const isFav = favorites.includes(id);
@@ -124,17 +142,19 @@ export default function AnimalsFeedScreen({ navigation }) {
         setTimeout(() => setFeedbackMessage({ id: null, text: '' }), 1500);
     };
 
-    // --- APAGAR ANIMAL (Inalterado) ---
-    const handleDeleteAnimal = (animalId, ownerId) => {
-        Alert.alert("Apagar", "Tens a certeza?", [
-            { text: "Cancelar" },
-            {
-                text: "Sim, Apagar",
-                onPress: () => PetActions.deleteAnimal(animalId, ownerId)
-            }
-        ]);
+    // --- RENDER BOTÕES DE AUTOR ---
+    const renderEditButton = (item) => {
+        if (!userId) return null;
+        if (!item.addedById || String(item.addedById) !== String(userId)) return null;
+
+        return (
+            <TouchableOpacity style={styles.editButton} onPress={() => handleEditAnimal(item)}>
+                <Text style={styles.editButtonText}>Editar</Text>
+            </TouchableOpacity>
+        );
     };
 
+    // NOTA: O botão Apagar só é renderizado neste contentor (resolve duplicação)
     const renderDeleteButton = (item) => {
         if (!userId) return null;
         if (!item.addedById || String(item.addedById) !== String(userId)) return null;
@@ -150,12 +170,9 @@ export default function AnimalsFeedScreen({ navigation }) {
     if (loading) return <ActivityIndicator size="large" color="#FF69B4" style={styles.loader} />;
 
     return (
-        // ⭐️ IMPLEMENTAÇÃO DO KEYBOARDAVOIDINGVIEW ⭐️
         <KeyboardAvoidingView
             style={styles.container}
-            // Ajustar o comportamento consoante a plataforma
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            // O offset pode ser ajustado se o teclado ainda cobrir o input
             keyboardVerticalOffset={0}
         >
             {/* Filtros */}
@@ -183,7 +200,6 @@ export default function AnimalsFeedScreen({ navigation }) {
 
             </View>
             <TextInput
-                // ⭐️ USAR APENAS O ESTILO NOVO ⭐️
                 style={styles.fullWidthSearchInput}
                 placeholder="Pesquisar Temperamento (Ex: Corajoso, Leal)"
                 placeholderTextColor="#000000"
@@ -199,6 +215,8 @@ export default function AnimalsFeedScreen({ navigation }) {
                 renderItem={({ item }) => {
                     const photo = item.photoUrl || item.image?.url || "https://placehold.co/300x200";
                     const isFav = favorites.includes(item.id);
+
+                    const locationDisplay = item.location;
                     const translatedTemperament = translateTemperament(item.temperament);
 
                     return (
@@ -220,32 +238,46 @@ export default function AnimalsFeedScreen({ navigation }) {
 
                                 {feedbackMessage.id === item.id && <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>}
 
-                                <Text style={styles.breedText}>{item.breed || "Raça desconhecida"}</Text>
+                                <Text style={styles.breedText}>{item.breed || "Sem Raça"}</Text>
 
-                                {item.createdAt && (
-                                    <Text style={styles.dateText}>
-                                        Publicado em: {formatDate(item.createdAt)}
-                                    </Text>
-                                )}
-                                {translatedTemperament && (
-                                    <Text style={styles.detailValueFull}>
-                                        {translatedTemperament}
-                                    </Text>
-                                )}
-                                {item.addedBy && <Text style={styles.authorText}>Por: {item.addedBy}</Text>}
+                                {/* ⭐️ INFO DE AUTOR E DATA ⭐️ */}
+                                <View style={styles.authorInfoContainer}>
+                                    {item.addedBy && <Text style={styles.authorText}>Por: {item.addedBy}</Text>}
+                                    {item.createdAt && (
+                                        <Text style={styles.dateText}>
+                                            Publicado em: {formatDate(item.createdAt)}
+                                        </Text>
+                                    )}
+                                </View>
+                                <View style={styles.separator} />
 
                                 <View style={styles.detailsContainer}>
-                                    <Text style={styles.detailValue}>{item.age ? item.age + " anos" : "Jovem"}</Text>
-                                    {item.contactNumber && (
-                                        // Usamos o contactText para dar um estilo próprio
-                                        <Text style={styles.contactText}>
-                                            Contacto: {item.contactNumber}
+                                    {/* Idade (Det. Pequeno) */}
+                                    <Text style={styles.detailValue}>🎂 {item.age ? item.age + " anos" : "Jovem"}</Text>
+
+                                    {/* Localização (Det. Full) */}
+                                    {locationDisplay && (
+                                        <Text style={styles.locationText}>
+                                            📍 Coordenadas: {locationDisplay}
                                         </Text>
                                     )}
 
+                                    {/* Temperamento Traduzido (Det. Full) */}
+                                    {translatedTemperament && (
+                                        <Text style={styles.detailValueFull}>
+                                            ✨ {translatedTemperament}
+                                        </Text>
+                                    )}
+
+                                    {/* Contacto (Det. Full) */}
+                                    {item.contactNumber && (
+                                        <Text style={styles.contactText}>
+                                            📞 Contacto: {item.contactNumber}
+                                        </Text>
+                                    )}
                                 </View>
 
-                                {/* Botões de Ação */}
+                                {/* Botão ADOTAR */}
                                 <TouchableOpacity
                                     style={styles.adoptButton}
                                     onPress={() => handleAdoption(item.id)}
@@ -253,7 +285,11 @@ export default function AnimalsFeedScreen({ navigation }) {
                                     <Text style={styles.adoptButtonText}>ADOTAR</Text>
                                 </TouchableOpacity>
 
-                                {renderDeleteButton(item)}
+                                {/* ⭐️ BOTÕES DE AUTOR: EDITAR/APAGAR ⭐️ */}
+                                <View style={styles.authorButtonsContainer}>
+                                    {renderEditButton(item)}
+                                    {renderDeleteButton(item)}
+                                </View>
                             </View>
                         </View>
                     );
@@ -276,84 +312,81 @@ const styles = StyleSheet.create({
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
     breedText: { fontSize: 18, color: '#880E4F', marginBottom: 5 },
-    dateText: { fontSize: 14, color: '#FF69B4', fontStyle: 'italic', marginBottom: 5 },
-    authorText: { fontSize: 14, color: '#D81B60', fontStyle: 'italic', marginBottom: 10 },
-    detailsContainer: {
+
+    // ⭐️ Estilos de Info do Autor ⭐️
+    authorInfoContainer: {
         flexDirection: 'row',
-        flexWrap: 'wrap', // ⭐️ NOVO: Permite que os itens quebrem a linha ⭐️
-        gap: 15, // Mantém o espaçamento entre itens na mesma linha
-        marginBottom: 10,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 5,
     },
+    dateText: { fontSize: 14, color: '#FF69B4', fontStyle: 'italic' },
+    authorText: { fontSize: 14, color: '#D81B60', fontStyle: 'italic' },
+    separator: { height: 1, backgroundColor: '#FFC0CB', marginVertical: 10 },
+
+    // ⭐️ Estilos de Detalhes e Layout ⭐️
+    detailsContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start', gap: 10, marginBottom: 10, marginTop: 10 },
+    detailValue: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
     detailValueFull: {
         fontSize: 14,
         color: '#880E4F',
         fontWeight: 'bold',
-        width: '100%', // ⭐️ FORÇA A OCUPAR UMA LINHA INTEIRA ⭐️
+        width: '100%',
         marginTop: 5,
         marginBottom: 5,
     },
-    adoptButton: { backgroundColor: '#FFB6C1', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 5 },
-    adoptButtonText: { color: '#fff', fontWeight: 'bold' },
-    deleteButton: { backgroundColor: '#D81B60', padding: 8, borderRadius: 8, marginTop: 10, alignItems: 'center' },
-    deleteButtonText: { color: '#fff', fontWeight: 'bold' },
-    filterContainer: {
-        flexDirection: 'row',
-        padding: 10,
-        gap: 10
-    },
-    pickerStyle: {
-        flex: 1,
-        backgroundColor: '#fff',
-        height: 50,
-        borderRadius: 5,
-        borderWidth: 1,
-        borderColor: '#FFB6C1',
-        color: '#333333',
-        fontSize: 16,
-        paddingLeft: 10,
-    },
-    textInputStyle: {
-        flex: 1,
-        backgroundColor: '#fff',
-        padding: 10,
-        borderRadius: 5,
-        height: 50,
-        borderWidth: 1,
-        borderColor: '#FFB6C1',
-        fontSize: 16,
-        color: '#333333',
-    },
-    temperamentSearch: {
-
-        marginHorizontal: 10,
-        marginBottom: 5,
-
-        // MANTER ALTURA FIXA E ESTILOS
-        height: 50,
-        backgroundColor: '#fff',
-        borderRadius: 5,
-        borderWidth: 1,
-        borderColor: '#FFB6C1',
-        padding: 10,
-        fontSize: 16,
-        color: '#333333',
-    },
-    feedbackText: { color: '#FF1493', textAlign: 'right', fontWeight: 'bold' },
-    customIcon: { width: 30, height: 30 },
-    fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
-    fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
-    detailValue: {
+    locationText: {
         fontSize: 14,
         color: '#880E4F',
+        marginTop: 5,
         fontWeight: 'bold',
-        // ⭐️ Ocupar menos espaço para Idade (opcional) ⭐️
-        width: 'auto',
+        width: '100%',
     },
     contactText: {
         fontSize: 14,
         color: '#D81B60',
         marginTop: 5,
         fontWeight: 'bold',
-        width: '100%', // ⭐️ Garante que o Contacto também ocupa uma linha inteira ⭐️
+        width: '100%',
     },
+
+    // ⭐️ Estilos de Botões de Ação ⭐️
+    adoptButton: { backgroundColor: '#FFB6C1', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
+    adoptButtonText: { color: '#fff', fontWeight: 'bold' },
+    authorButtonsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        gap: 10,
+        marginTop: 10,
+        marginBottom: 5,
+    },
+    editButton: {
+        flex: 1,
+        backgroundColor: '#FF69B4',
+        padding: 8,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    editButtonText: {
+        color: '#fff',
+        fontWeight: 'bold'
+    },
+    deleteButton: {
+        flex: 1,
+        backgroundColor: '#D81B60',
+        padding: 8,
+        borderRadius: 8,
+        alignItems: 'center'
+    },
+    deleteButtonText: { color: '#fff', fontWeight: 'bold' },
+
+    // Estilos de Filtros e UI
+    filterContainer: { flexDirection: 'row', padding: 10, gap: 10 },
+    pickerStyle: { flex: 1, backgroundColor: '#fff', height: 50, borderRadius: 5, borderWidth: 1, borderColor: '#FFB6C1', color: '#333333', fontSize: 16, paddingLeft: 10, },
+    textInputStyle: { flex: 1, backgroundColor: '#fff', padding: 10, borderRadius: 5, height: 50, borderWidth: 1, borderColor: '#FFB6C1', fontSize: 16, color: '#333333', },
+    fullWidthSearchInput: { marginHorizontal: 10, marginBottom: 5, height: 50, backgroundColor: '#fff', borderRadius: 5, borderWidth: 1, borderColor: '#FFB6C1', padding: 10, fontSize: 16, color: '#333333', },
+    feedbackText: { color: '#FF1493', textAlign: 'right', fontWeight: 'bold' },
+    customIcon: { width: 30, height: 30 },
+    fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
+    fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
 });

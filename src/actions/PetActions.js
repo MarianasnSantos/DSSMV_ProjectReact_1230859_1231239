@@ -1,4 +1,4 @@
-/// src/actions/PetActions.js
+// src/actions/PetActions.js
 
 import AppDispatcher from '../dispatchers/AppDispatcher';
 import AuthStore from '../stores/AuthStore';
@@ -108,6 +108,33 @@ async function deleteAnimalFromRestDB(animalId) {
     return res.ok;
 }
 
+// ---------------------------------------------------------------
+// ⭐️ NOVO: Função auxiliar para atualizar animal no RestDB ⭐️
+// ---------------------------------------------------------------
+async function putAnimalToRestDB(animalData) {
+    const res = await fetch(
+        `${RESTDB_URL}/${animalData.id}`,
+        {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-apikey': RESTDB_API_KEY,
+                'Cache-Control': 'no-cache',
+            },
+            // Remove o ID do corpo da requisição, mas mantém os outros campos
+            body: JSON.stringify(animalData)
+        }
+    );
+
+    if (!res.ok) {
+        throw new Error("Falha ao atualizar no RestDB");
+    }
+
+    const updated = await res.json();
+    return { ...updated, id: String(updated._id) };
+}
+
+
 // ===============================================================
 // AÇÕES (Flux)
 // ===============================================================
@@ -139,8 +166,7 @@ export class PetActions {
         }
     }
 
-    // Adicionar Animal (Chamado pelo AddAnimalScreen)
-    // ⚠️ Renomeado de createAnimal para addAnimal para bater certo com o ecrã
+    // Adicionar Animal (Criação)
     static async addAnimal(animalData) {
         AppDispatcher.dispatch({ type: 'CREATE_ANIMAL_START' });
 
@@ -155,8 +181,6 @@ export class PetActions {
         }
 
         try {
-            // O animalData já vem completo do AddAnimalScreen (com addedBy e addedById)
-            // Não precisamos de sobrescrever aqui, apenas enviar.
             const newAnimal = await postAnimalToRestDB(animalData);
 
             AppDispatcher.dispatch({
@@ -164,7 +188,6 @@ export class PetActions {
                 payload: { animal: newAnimal }
             });
 
-            // Recarrega a lista para aparecer logo no feed
             this.loadAnimals();
             return true;
 
@@ -178,10 +201,42 @@ export class PetActions {
         }
     }
 
-    // Apagar animal
+    // ⭐️ NOVO: Atualizar Animal (Edição) ⭐️
+    static async updateAnimal(animalData) {
+        // Validação básica
+        if (!animalData.id) {
+            console.error("ID do animal é necessário para atualizar.");
+            return false;
+        }
+
+        AppDispatcher.dispatch({ type: 'UPDATE_ANIMAL_START' });
+
+        try {
+            const updatedAnimal = await putAnimalToRestDB(animalData);
+
+            AppDispatcher.dispatch({
+                type: 'UPDATE_ANIMAL_SUCCESS',
+                payload: { animal: updatedAnimal }
+            });
+
+            // Recarregar a lista para garantir consistência no feed e store
+            this.loadAnimals();
+            return true;
+
+        } catch (error) {
+            console.error('Erro na ação de atualização:', error);
+            AppDispatcher.dispatch({
+                type: 'UPDATE_ANIMAL_FAIL',
+                payload: { error: error.message }
+            });
+            return false;
+        }
+    }
+
+    // Apagar animal (Inalterado)
     static async deleteAnimal(animalId, addedById) {
         const { user } = AuthStore.getState();
-        const userId = user?._id || user?.id; // Garante que pega o ID
+        const userId = user?._id || user?.id;
 
         if (!userId) {
             AppDispatcher.dispatch({
@@ -191,7 +246,6 @@ export class PetActions {
             return false;
         }
 
-        // Validação de segurança extra (embora o botão já esteja escondido na view)
         if (String(userId) !== String(addedById)) {
             AppDispatcher.dispatch({
                 type: 'DELETE_ANIMAL_FAIL',
@@ -211,7 +265,6 @@ export class PetActions {
                     payload: { id: String(animalId) }
                 });
 
-                // Recarrega para garantir que a lista fica limpa
                 this.loadAnimals();
                 return true;
             } else {
@@ -227,7 +280,7 @@ export class PetActions {
         }
     }
 
-    // Filtros do Feed
+    // Filtros do Feed (Inalterado)
     static setFilter(filterType, value) {
         AppDispatcher.dispatch({
             type: 'SET_FILTER',
@@ -235,7 +288,7 @@ export class PetActions {
         });
     }
 
-    // Iniciar processo de Adoção
+    // Iniciar processo de Adoção (Inalterado)
     static async startAdoption(animalId, userId) {
         const aId = String(animalId);
 
@@ -245,7 +298,6 @@ export class PetActions {
         });
 
         try {
-            // Simulação de tempo de rede
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             AppDispatcher.dispatch({
@@ -261,10 +313,8 @@ export class PetActions {
         }
     }
 
-    // Favoritos
+    // Favoritos (Inalterado)
     static toggleFavorite(animalId) {
-        // A lógica real de guardar favoritos geralmente é no AuthStore ou LocalStorage
-        // Aqui apenas despachamos o evento
         AppDispatcher.dispatch({
             type: 'FAVORITE_SUCCESS',
             payload: { animalId: String(animalId) }

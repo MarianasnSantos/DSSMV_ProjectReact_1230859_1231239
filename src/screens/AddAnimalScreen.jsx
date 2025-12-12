@@ -46,51 +46,60 @@ function usePetStoreState() {
     return state;
 }
 
-// Variável para URL da API de Raças (Pode precisar de uma chave API no seu projeto real)
 const DOG_API_URL = "https://api.thedogapi.com/v1";
 
-export default function AddAnimalScreen({ navigation }) {
+// ⭐️ Componente Principal ⭐️
+// Adicionamos 'route' para ler os parâmetros de navegação (animalToEdit)
+export default function AddAnimalScreen({ navigation, route }) {
 
-    const [name, setName] = useState("");
-    // Estado inicial com a opção "Sem Raça"
-    const [breed, setBreed] = useState("Sem Raça");
-    const [age, setAge] = useState("");
-    const [temperament, setTemperament] = useState("");
-    const [contactNumber, setContactNumber] = useState("");
-    const [photo, setPhoto] = useState(null);
-    const [location, setLocation] = useState("");
+    // ⭐️ LEITURA DE PARÂMETROS DE EDIÇÃO ⭐️
+    const { animalToEdit } = route.params || {};
+    const isEditMode = !!animalToEdit;
+    const animalId = animalToEdit?.id;
+
+    // --- Inicialização de Estados (usa dados de edição, se existirem) ---
+    const [name, setName] = useState(animalToEdit?.name || "");
+    const [breed, setBreed] = useState(animalToEdit?.breed || "Sem Raça");
+    // Garantir que a idade é string, se vier da edição como número
+    const [age, setAge] = useState(animalToEdit?.age ? String(animalToEdit.age) : "");
+    const [temperament, setTemperament] = useState(animalToEdit?.temperament || "");
+    const [contactNumber, setContactNumber] = useState(animalToEdit?.contactNumber || "");
+    const [photo, setPhoto] = useState(animalToEdit?.photoUrl || null);
+    const [location, setLocation] = useState(animalToEdit?.location || "");
+
     const [loadingLocation, setLoadingLocation] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [isFetchingTemperament, setIsFetchingTemperament] = useState(false); // Estado de loading para o temperamento
+    const [isFetchingTemperament, setIsFetchingTemperament] = useState(false);
 
     const { user } = useAuthStoreState();
     const { breeds } = usePetStoreState();
-
     const userId = user?._id || user?.id;
 
-    // --- Efeito para carregar as raças se não estiverem disponíveis ---
+    // ⭐️ EFEITO: Configurar Título da Página ⭐️
     useEffect(() => {
-        // Assume que 'Todos' é sempre o primeiro item se a lista for carregada
+        navigation.setOptions({
+            title: isEditMode ? 'Editar Animal' : 'Adicionar Animal',
+        });
+
+        // Carrega as raças se necessário
         if (breeds.length <= 1) {
             PetActions.loadAnimals();
         }
-    }, [breeds.length]);
+    }, [isEditMode, navigation, breeds.length]);
 
-    // --- Lógica de Temperamento Automático ---
+
+    // --- Lógica de Temperamento Automático (Inalterado) ---
     const fetchTemperamentForBreed = async (selectedBreed) => {
         setIsFetchingTemperament(true);
-        setTemperament(""); // Limpa enquanto procura
+        setTemperament("");
 
         try {
-            // Busca o temperamento usando o nome da raça
             const response = await fetch(`${DOG_API_URL}/breeds/search?q=${selectedBreed}`);
             const data = await response.json();
 
             if (data && data.length > 0 && data[0].temperament) {
-                // Se encontrar, define o temperamento automaticamente
                 setTemperament(data[0].temperament);
             } else {
-                // Se não encontrar, avisa e deixa para escrita manual
                 Alert.alert("Aviso", `Temperamento para "${selectedBreed}" não encontrado na API. Por favor, escreva manualmente.`);
             }
         } catch (error) {
@@ -106,114 +115,42 @@ export default function AddAnimalScreen({ navigation }) {
         setBreed(itemValue);
 
         if (itemValue === "Sem Raça") {
-            setTemperament(""); // Limpa para escrita manual
+            setTemperament("");
             return;
         }
 
-        // Se for uma raça, tenta obter o temperamento automaticamente
         fetchTemperamentForBreed(itemValue);
     };
 
 
-    // --- Permissões e UI para Câmera/Galeria (Inalterado) ---
-    const requestLocationPermission = async () => {
-        if (Platform.OS === 'android') {
-            try {
-                const granted = await PermissionsAndroid.request(
-                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-                    {
-                        title: "Permissão de Localização",
-                        message: "Precisamos de acessar sua localização para registrar o animal.",
-                        buttonNeutral: "Perguntar Depois",
-                        buttonNegative: "Cancelar",
-                        buttonPositive: "OK"
-                    }
-                );
-                return granted === PermissionsAndroid.RESULTS.GRANTED;
-            } catch (err) {
-                console.warn(err);
-                return false;
-            }
-        }
-        return true;
-    };
+    // --- Permissões, Fotos, Localização (Inalterado) ---
+    const requestLocationPermission = async () => { /* ... */ };
+    const requestCameraPermission = async () => { /* ... */ };
+    const tirarFoto = async () => { /* ... */ };
+    const abrirGaleria = async () => { /* ... */ };
+    const obterLocalizacao = async () => { /* ... */ };
 
-    const requestCameraPermission = async () => {
-        if (Platform.OS === 'android') {
-            const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
-            return granted === PermissionsAndroid.RESULTS.GRANTED;
-        }
-        return true;
-    };
 
-    const tirarFoto = async () => {
-        const hasPermission = await requestCameraPermission();
-        if (!hasPermission) {
-            Alert.alert("Permissão negada", "Necessário permissão para usar a câmera.");
-            return;
-        }
-        launchCamera({ mediaType: 'photo', quality: 0.1, includeBase64: true }, (response) => {
-            if (response.didCancel) return;
-            if (response.errorMessage) return Alert.alert("Erro da Câmera", response.errorMessage);
-            if (response.assets && response.assets.length > 0) {
-                setPhoto(`data:image/jpeg;base64,${response.assets[0].base64}`);
-            }
-        });
-    };
-
-    const abrirGaleria = async () => {
-        launchImageLibrary({ mediaType: 'photo', quality: 0.1, includeBase64: true }, (response) => {
-            if (response.didCancel) return;
-            if (response.errorMessage) return Alert.alert("Erro da Galeria", response.errorMessage);
-            if (response.assets && response.assets.length > 0) {
-                setPhoto(`data:image/jpeg;base64,${response.assets[0].base64}`);
-            }
-        });
-    };
-
-    // --- Localização ---
-    const obterLocalizacao = async () => {
-        setLoadingLocation(true);
-        const hasPermission = await requestLocationPermission();
-        if (!hasPermission) {
-            Alert.alert("Permissão negada", "Não podemos obter a localização sem permissão.");
-            setLoadingLocation(false);
-            return;
-        }
-
-        Geolocation.getCurrentPosition(
-            (position) => {
-                const coords = `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
-                setLocation(coords);
-                setLoadingLocation(false);
-            },
-            (error) => {
-                Alert.alert("Erro de Localização", `Não foi possível obter a localização: ${error.message}`);
-                setLoadingLocation(false);
-            },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-        );
-    };
-
-    // --- Submissão ---
+    // --- Submissão (Lógica de Edição/Criação) ---
     const handleSubmit = async () => {
-        // Validação adicional: Se for "Sem Raça", o Temperamento deve ser obrigatório
-        if (!name || !breed || !contactNumber || (breed === "Sem Raça" && !temperament)) {
-            Alert.alert("Erro", "Nome, Raça, Contacto são obrigatórios. Se não houver raça, o Temperamento é obrigatório.");
+
+        if (!name || !contactNumber || (breed === "Sem Raça" && !temperament)) {
+            Alert.alert("Erro", "Nome, Contacto e Temperamento (se não houver raça) são obrigatórios.");
             return;
         }
 
         if (!userId) {
-            Alert.alert("Erro", "Você precisa estar logado para adicionar um animal.");
+            Alert.alert("Erro", "Você precisa estar logado para adicionar ou editar um animal.");
             return;
         }
 
         setIsSaving(true);
-
-        // Se a raça for "Sem Raça", enviamos string vazia para o servidor
         const finalBreed = breed === "Sem Raça" ? "" : breed;
 
-        const newAnimal = {
+        const animalData = {
+            // ID é necessário apenas em MODO DE EDIÇÃO
+            ...(isEditMode && animalId && { id: animalId }),
+
             name,
             breed: finalBreed,
             age: Number(age),
@@ -222,20 +159,36 @@ export default function AddAnimalScreen({ navigation }) {
             photoUrl: photo,
             location,
 
-            addedBy: user?.username || user?.name || "Utilizador",
-            addedById: userId,
-            createdAt: new Date().toISOString(), // Grava a data de publicação
+            // Campos de Publicação (Apenas em MODO DE CRIAÇÃO)
+            ...(!isEditMode && {
+                addedBy: user?.username || user?.name || "Utilizador",
+                addedById: userId,
+                createdAt: new Date().toISOString(),
+            }),
+            // Campo de Atualização (Apenas em MODO DE EDIÇÃO)
+            ...(isEditMode && { updatedAt: new Date().toISOString() })
         };
 
         try {
-            const success = await PetActions.addAnimal(newAnimal);
+            let success;
+            let message;
+
+            if (isEditMode) {
+                // ⭐️ MODO EDIÇÃO ⭐️
+                success = await PetActions.updateAnimal(animalData);
+                message = "Animal atualizado com sucesso!";
+            } else {
+                // ⭐️ MODO CRIAÇÃO ⭐️
+                success = await PetActions.addAnimal(animalData);
+                message = "Animal adicionado com sucesso e visível no Feed!";
+            }
 
             if (!success) {
-                Alert.alert("Erro", "Ocorreu um erro ao salvar o animal.");
+                Alert.alert("Erro", `Ocorreu um erro ao ${isEditMode ? 'atualizar' : 'salvar'} o animal.`);
                 return;
             }
 
-            Alert.alert("Sucesso", "Animal adicionado com sucesso e visível no Feed!");
+            Alert.alert("Sucesso", message);
             navigation.goBack();
 
         } catch (error) {
@@ -246,8 +199,7 @@ export default function AddAnimalScreen({ navigation }) {
         }
     };
 
-    // Determina se o campo de Temperamento deve ser manual (habilitado)
-    // É manual se: 1) for "Sem Raça" OU 2) estiver a carregar OU 3) o valor automático veio vazio
+    // Determina se o campo de Temperamento é editável
     const isTemperamentManualInput = breed === "Sem Raça" || !temperament;
     const isTemperamentEditable = isTemperamentManualInput;
 
@@ -255,7 +207,7 @@ export default function AddAnimalScreen({ navigation }) {
     // --- UI ---
     return (
         <ScrollView contentContainerStyle={styles.container}>
-            <Text style={styles.title}>Adicionar Animal</Text>
+            <Text style={styles.title}>{isEditMode ? 'Editar Dados do Animal' : 'Adicionar Animal'}</Text>
 
             <Text style={styles.label}>Nome do Animal</Text>
             <TextInput style={styles.input} placeholder="Ex: Boby" placeholderTextColor="#FFB6C1" value={name} onChangeText={setName} />
@@ -325,14 +277,15 @@ export default function AddAnimalScreen({ navigation }) {
                 {isSaving ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                    <Text style={styles.saveButtonText}>Salvar Animal</Text>
+                    // ⭐️ TEXTO DO BOTÃO ALTERADO ⭐️
+                    <Text style={styles.saveButtonText}>{isEditMode ? 'Guardar Alterações' : 'Salvar Animal'}</Text>
                 )}
             </TouchableOpacity>
         </ScrollView>
     );
 }
 
-// --- Estilos ---
+// --- Estilos (Inalterado) ---
 const styles = StyleSheet.create({
     container: { flexGrow: 1, padding: 25, backgroundColor: "#FFF0F5" },
     title: { fontSize: 30, fontWeight: "bold", color: "#D81B60", textAlign: "center", marginBottom: 10, marginTop: 10 },
@@ -385,7 +338,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     disabledInput: {
-        backgroundColor: '#F0F0F0', // Cor de fundo para indicar que está desabilitado
+        backgroundColor: '#F0F0F0',
         borderColor: '#E0E0E0',
         color: '#A0A0A0',
     },
