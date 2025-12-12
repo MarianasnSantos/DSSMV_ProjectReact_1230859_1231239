@@ -1,26 +1,31 @@
-// src/actions/PetActions.js
+/// src/actions/PetActions.js
 
 import AppDispatcher from '../dispatchers/AppDispatcher';
 import AuthStore from '../stores/AuthStore';
 
 // ----------------------------
-// Funções auxiliares
+// CONFIGURAÇÕES
+// ----------------------------
+const RESTDB_API_KEY = 'a29c6a5e4f29c400c1ffac21c4c454f2af5a3'; // A tua chave
+const RESTDB_URL = 'https://petmatch-afab.restdb.io/rest/animals';
+
+// ----------------------------
+// Funções auxiliares (API)
 // ----------------------------
 
-// 1️⃣ Buscar dados completos da raça no TheDogAPI
+// 1️⃣ Buscar dados completos da raça (TheDogAPI)
 async function getBreedInfo(breedName) {
     try {
         const res = await fetch('https://api.thedogapi.com/v1/breeds');
         const data = await res.json();
         if (!Array.isArray(data)) return {};
-        const breed = data.find(b => b.name.toLowerCase() === breedName.toLowerCase());
+        const breed = data.find(b => b.name.toLowerCase() === (breedName || "").toLowerCase());
         if (!breed) return {};
         return {
             temperament: breed.temperament || "Desconhecido",
             life_span: breed.life_span || "Sem dados"
         };
-    } catch (error) {
-        console.error("Erro ao buscar info da raça:", error);
+    } catch {
         return {};
     }
 }
@@ -28,67 +33,87 @@ async function getBreedInfo(breedName) {
 // 2️⃣ Buscar animais do RestDB
 async function fetchAnimalsFromRestDB() {
     try {
-        const res = await fetch('https://petmatch-afab.restdb.io/rest/animals', {
-            headers: { 'x-apikey': 'a29c6a5e4f29c400c1ffac21c4c454f2af5a3' }
+        const res = await fetch(RESTDB_URL, {
+            headers: {
+                'x-apikey': RESTDB_API_KEY,
+                'cache-control': 'no-cache'
+            }
         });
         const data = await res.json();
-        return Array.isArray(data) ? data.map(a => ({ ...a, id: a._id })) : [];
-    } catch (error) {
-        console.error("Erro ao buscar animais do RestDB:", error);
+
+        return Array.isArray(data)
+            ? data.map(a => ({
+                ...a,
+                id: String(a._id), // O RestDB usa _id, nós usamos id na App
+                // Mantemos os nomes originais para bater certo com o Feed:
+                // addedBy, addedById, photoUrl, age, etc.
+            }))
+            : [];
+    } catch (err) {
+        console.error("Erro fetch RestDB:", err);
         return [];
     }
 }
 
-// 3️⃣ Buscar raças do TheDogAPI
+// 3️⃣ Buscar lista de raças (TheDogAPI)
 async function fetchDogBreeds() {
     try {
         const res = await fetch('https://api.thedogapi.com/v1/breeds');
         const data = await res.json();
         return Array.isArray(data) ? data.map(b => b.name) : [];
-    } catch (error) {
-        console.error("Erro ao buscar raças do TheDogAPI:", error);
+    } catch {
         return [];
     }
 }
 
-// 4️⃣ Simulação de registro de adoção
-async function registerAdoptionInterest(animalId, userId) {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    console.log(`Interesse de adoção registado para Animal ID: ${animalId} pelo Usuário ID: ${userId}`);
-    return true;
-}
-
-// 5️⃣ Criar novo animal no RestDB
+// 4️⃣ Criar animal no RestDB
 async function postAnimalToRestDB(animalData) {
+    // Tenta complementar dados se a raça existir na API pública
     const breedInfo = await getBreedInfo(animalData.breed);
 
     const fullAnimal = {
         ...animalData,
+        // Se o utilizador não preencheu, tenta usar o da API
         temperament: animalData.temperament || breedInfo.temperament,
-        life_span: animalData.life_span || breedInfo.life_span
+        // O RestDB espera number no 'age', mas string no life_span da API
+        // Mantemos o que veio do formulário prioritariamente
     };
 
-    const res = await fetch('https://petmatch-afab.restdb.io/rest/animals', {
+    const res = await fetch(RESTDB_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'x-apikey': 'a29c6a5e4f29c400c1ffac21c4c454f2af5a3'
+            'x-apikey': RESTDB_API_KEY
         },
         body: JSON.stringify(fullAnimal)
     });
 
-    if (!res.ok) throw new Error("Falha ao criar animal");
+    if (!res.ok) {
+        throw new Error("Falha ao salvar no RestDB");
+    }
+
     const created = await res.json();
-    return { ...created, id: created._id };
+    return { ...created, id: String(created._id) };
 }
 
-// ----------------------------
-// Classe de Actions
-// ----------------------------
+// 5️⃣ Apagar animal do RestDB
+async function deleteAnimalFromRestDB(animalId) {
+    const res = await fetch(
+        `${RESTDB_URL}/${animalId}`,
+        {
+            method: 'DELETE',
+            headers: { 'x-apikey': RESTDB_API_KEY }
+        }
+    );
+    return res.ok;
+}
 
+// ===============================================================
+// AÇÕES (Flux)
+// ===============================================================
 export class PetActions {
 
-    // Carregar animais e raças
+    // Carregar animais para o Feed
     static async loadAnimals() {
         AppDispatcher.dispatch({ type: 'LOAD_ANIMALS_START' });
 
@@ -98,26 +123,40 @@ export class PetActions {
                 fetchDogBreeds()
             ]);
 
-            const breedList = ['Todos', ...breeds];
-
             AppDispatcher.dispatch({
                 type: 'LOAD_ANIMALS_SUCCESS',
-                payload: { animals, breeds: breedList }
+                payload: {
+                    animals,
+                    breeds: ['Todos', ...breeds]
+                }
             });
 
         } catch (error) {
             AppDispatcher.dispatch({
                 type: 'LOAD_ANIMALS_FAIL',
-                payload: { error: error.message || "Erro desconhecido ao carregar animais" }
+                payload: { error: error.message }
             });
         }
     }
 
-    // Criar novo animal (preenche automaticamente temperament e life_span)
-    static async createAnimal(animalData) {
+    // Adicionar Animal (Chamado pelo AddAnimalScreen)
+    // ⚠️ Renomeado de createAnimal para addAnimal para bater certo com o ecrã
+    static async addAnimal(animalData) {
         AppDispatcher.dispatch({ type: 'CREATE_ANIMAL_START' });
 
+        const { user } = AuthStore.getState();
+
+        if (!user) {
+            AppDispatcher.dispatch({
+                type: 'CREATE_ANIMAL_FAIL',
+                payload: { error: 'Precisa estar logado para criar.' }
+            });
+            return false;
+        }
+
         try {
+            // O animalData já vem completo do AddAnimalScreen (com addedBy e addedById)
+            // Não precisamos de sobrescrever aqui, apenas enviar.
             const newAnimal = await postAnimalToRestDB(animalData);
 
             AppDispatcher.dispatch({
@@ -125,18 +164,70 @@ export class PetActions {
                 payload: { animal: newAnimal }
             });
 
-            // Recarrega lista de animais
+            // Recarrega a lista para aparecer logo no feed
             this.loadAnimals();
+            return true;
 
         } catch (error) {
+            console.error(error);
             AppDispatcher.dispatch({
                 type: 'CREATE_ANIMAL_FAIL',
                 payload: { error: error.message }
             });
+            return false;
         }
     }
 
-    // Definir filtro
+    // Apagar animal
+    static async deleteAnimal(animalId, addedById) {
+        const { user } = AuthStore.getState();
+        const userId = user?._id || user?.id; // Garante que pega o ID
+
+        if (!userId) {
+            AppDispatcher.dispatch({
+                type: 'DELETE_ANIMAL_FAIL',
+                payload: { error: "Tem de estar logado para apagar." }
+            });
+            return false;
+        }
+
+        // Validação de segurança extra (embora o botão já esteja escondido na view)
+        if (String(userId) !== String(addedById)) {
+            AppDispatcher.dispatch({
+                type: 'DELETE_ANIMAL_FAIL',
+                payload: { error: "Só o dono pode apagar este animal." }
+            });
+            return false;
+        }
+
+        AppDispatcher.dispatch({ type: 'DELETE_ANIMAL_START' });
+
+        try {
+            const ok = await deleteAnimalFromRestDB(animalId);
+
+            if (ok) {
+                AppDispatcher.dispatch({
+                    type: 'DELETE_ANIMAL_SUCCESS',
+                    payload: { id: String(animalId) }
+                });
+
+                // Recarrega para garantir que a lista fica limpa
+                this.loadAnimals();
+                return true;
+            } else {
+                throw new Error("Falha ao apagar animal no servidor.");
+            }
+
+        } catch (error) {
+            AppDispatcher.dispatch({
+                type: 'DELETE_ANIMAL_FAIL',
+                payload: { error: error.message }
+            });
+            return false;
+        }
+    }
+
+    // Filtros do Feed
     static setFilter(filterType, value) {
         AppDispatcher.dispatch({
             type: 'SET_FILTER',
@@ -144,53 +235,39 @@ export class PetActions {
         });
     }
 
-    // Iniciar adoção
+    // Iniciar processo de Adoção
     static async startAdoption(animalId, userId) {
+        const aId = String(animalId);
+
         AppDispatcher.dispatch({
             type: 'ADOPTION_START',
-            payload: { animalId }
+            payload: { animalId: aId }
         });
 
         try {
-            const success = await registerAdoptionInterest(animalId, userId);
+            // Simulação de tempo de rede
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
-            if (success) {
-                AppDispatcher.dispatch({
-                    type: 'ADOPTION_SUCCESS',
-                    payload: { animalId }
-                });
-            } else {
-                throw new Error("O servidor rejeitou o pedido de adoção.");
-            }
+            AppDispatcher.dispatch({
+                type: 'ADOPTION_SUCCESS',
+                payload: { animalId: aId }
+            });
 
         } catch (error) {
             AppDispatcher.dispatch({
                 type: 'ADOPTION_FAIL',
-                payload: { animalId, error: error.message || "Falha de rede ao enviar pedido." }
+                payload: { animalId: aId, error: error.message }
             });
         }
     }
 
-    // Adicionar/Remover favorito
-    static async toggleFavorite(animalId) {
-        const { user, favorites } = AuthStore.getState();
-        if (!user || !user._id) return;
-
-        const newFavorites = favorites.includes(animalId)
-            ? favorites.filter(id => id !== animalId)
-            : [...favorites, animalId];
-
-        try {
-            // Atualiza favoritos no backend (simulação)
-            AppDispatcher.dispatch({
-                type: 'FAVORITE_SUCCESS',
-                payload: { animalId }
-            });
-        } catch (error) {
-            AppDispatcher.dispatch({
-                type: 'FAVORITE_FAIL',
-                payload: { error: error.message }
-            });
-        }
+    // Favoritos
+    static toggleFavorite(animalId) {
+        // A lógica real de guardar favoritos geralmente é no AuthStore ou LocalStorage
+        // Aqui apenas despachamos o evento
+        AppDispatcher.dispatch({
+            type: 'FAVORITE_SUCCESS',
+            payload: { animalId: String(animalId) }
+        });
     }
 }
