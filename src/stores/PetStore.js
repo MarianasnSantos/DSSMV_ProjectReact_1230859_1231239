@@ -25,16 +25,18 @@ class PetStore extends EventEmitter {
 
 const store = new PetStore();
 
-// ----------------------------
-// Registro no Dispatcher
-// ----------------------------
+
+// ===============================================================
+// Dispatcher
+// ===============================================================
 
 AppDispatcher.register((action) => {
     switch (action.type) {
 
-        // ----------------------------
-        // Carregar Animais
-        // ----------------------------
+        // ===============================================================
+        // CARREGAR ANIMAIS
+        // ===============================================================
+
         case 'LOAD_ANIMALS_START':
             _state = { ..._state, loading: true, error: null };
             store.emitChange();
@@ -54,15 +56,16 @@ AppDispatcher.register((action) => {
             store.emitChange();
             break;
 
-
         case 'LOAD_ANIMALS_FAIL':
             _state = { ..._state, loading: false, error: action.payload.error };
             store.emitChange();
             break;
 
-        // ----------------------------
-        // Criar Novo Animal
-        // ----------------------------
+
+        // ===============================================================
+        // CRIAR ANIMAL
+        // ===============================================================
+
         case 'CREATE_ANIMAL_START':
             _state = { ..._state, loading: true, error: null };
             store.emitChange();
@@ -83,26 +86,52 @@ AppDispatcher.register((action) => {
             store.emitChange();
             break;
 
-        // ----------------------------
-        // Filtros
-        // ----------------------------
+
+        // ===============================================================
+        // APAGAR ANIMAL
+        // ===============================================================
+
+        case 'DELETE_ANIMAL_START':
+            _state = { ..._state, loading: true, error: null };
+            store.emitChange();
+            break;
+
+        case 'DELETE_ANIMAL_SUCCESS':
+            _state = {
+                ..._state,
+                loading: false,
+                animals: _state.animals.filter(a => a.id !== action.payload.id),
+                error: null
+            };
+            store.emitChange();
+            break;
+
+        case 'DELETE_ANIMAL_FAIL':
+            _state = { ..._state, loading: false, error: action.payload.error };
+            store.emitChange();
+            break;
+
+
+        // ===============================================================
+        // FILTROS
+        // ===============================================================
+
         case 'SET_FILTER':
             const { filterType, value } = action.payload;
             const cleanedValue = (value === 'Todos' || !value) ? null : value;
 
             _state = {
                 ..._state,
-                filters: {
-                    ..._state.filters,
-                    [filterType]: cleanedValue,
-                }
+                filters: { ..._state.filters, [filterType]: cleanedValue }
             };
             store.emitChange();
             break;
 
-        // ----------------------------
-        // Adoção
-        // ----------------------------
+
+        // ===============================================================
+        // ADOÇÃO
+        // ===============================================================
+
         case 'ADOPTION_START':
             _state = {
                 ..._state,
@@ -136,9 +165,11 @@ AppDispatcher.register((action) => {
             store.emitChange();
             break;
 
-        // ----------------------------
-        // Favoritos
-        // ----------------------------
+
+        // ===============================================================
+        // FAVORITOS
+        // ===============================================================
+
         case 'FAVORITE_SUCCESS':
         case 'FAVORITE_FAIL':
             store.emitChange();
@@ -150,3 +181,4 @@ AppDispatcher.register((action) => {
 });
 
 export default store;
+
