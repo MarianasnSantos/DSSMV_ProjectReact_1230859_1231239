@@ -1,33 +1,21 @@
 import React, { useEffect, useState } from "react";
 import {
-    View,
-    Text,
-    FlatList,
-    Image,
-    ActivityIndicator,
-    StyleSheet,
-    TouchableOpacity,
-    Alert,
-    TextInput
+    View, Text, FlatList, Image, ActivityIndicator, StyleSheet,
+    TouchableOpacity, TextInput, Alert
 } from "react-native";
-
 import { Picker } from '@react-native-picker/picker';
-
-// Importações Flux
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 
-// ⭐️ IMAGEM FAVORITO (Certifique-se que o caminho e o nome do ficheiro estão corretos) ⭐️
 const FAVORITE_ICON = require('../assets/favoritar.jpg');
 
-// --- Funções Auxiliares ---
 function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
-        const handleChange = () => { setState(PetStore.getState()); };
+        const handleChange = () => setState(PetStore.getState());
         PetStore.addChangeListener(handleChange);
-        return () => { PetStore.removeListener(handleChange); };
+        return () => PetStore.removeListener(handleChange);
     }, []);
     return state;
 }
@@ -35,7 +23,7 @@ function usePetStoreState() {
 const getAuthData = () => {
     const { user, favorites, isLoggedIn } = AuthStore.getState();
     return {
-        userId: user?._id,
+        userId: user?._id || user?.id ? String(user._id || user.id) : null,
         favorites: favorites || [],
         isLoggedIn
     };
@@ -44,13 +32,14 @@ const getAuthData = () => {
 const handleAdoption = (animalId) => {
     const { userId } = getAuthData();
     if (!userId) {
-        Alert.alert("Erro de Autenticação", "Deve estar autenticado para iniciar o processo de adoção.");
+        Alert.alert("Erro", "Login necessário.");
         return;
     }
     PetActions.startAdoption(animalId, userId);
 };
 
 export default function AnimalsFeedScreen({ navigation }) {
+    // ⚠️ CORREÇÃO 1: Usamos 'breeds' (nome novo) e damos valor padrão []
     const {
         animals = [],
         loading = false,
@@ -60,347 +49,192 @@ export default function AnimalsFeedScreen({ navigation }) {
         filters = {}
     } = usePetStoreState() || {};
 
-    const { favorites, isLoggedIn } = getAuthData();
-
-    // ⭐️ NOVO ESTADO: Para gerir o feedback temporário ⭐️
+    const { favorites, isLoggedIn, userId } = getAuthData();
     const [feedbackMessage, setFeedbackMessage] = useState({ id: null, text: '' });
 
-
     useEffect(() => {
-        // 🚨 CRÍTICO: Esta chamada deve funcionar para carregar a lista!
         PetActions.loadAnimals();
     }, []);
 
+    // --- FILTROS ---
     const getFilteredAnimals = () => {
         let filteredList = animals;
 
+        // Filtro Raça
         if (filters.breed && filters.breed !== 'Todos') {
-            filteredList = filteredList.filter(animal => animal.breed === filters.breed || animal.name === filters.breed);
-        }
-
-        const minAge = parseInt(filters.minAge);
-        if (!isNaN(minAge) && minAge > 0) {
-            filteredList = filteredList.filter(animal => {
-                if (!animal.life_span) return false;
-                const spanParts = animal.life_span.split('-');
-                let maxLifeSpan;
-                if (spanParts.length > 1) {
-                    maxLifeSpan = parseInt(spanParts[1].replace('anos', '').replace('ano', '').trim());
-                } else {
-                    maxLifeSpan = parseInt(spanParts[0].replace('anos', '').replace('ano', '').trim());
-                }
-                return maxLifeSpan >= minAge;
-            });
-        }
-
-        if (filters.temperament && filters.temperament.trim().length > 0) {
-            const searchText = filters.temperament.trim().toLowerCase();
             filteredList = filteredList.filter(animal =>
-                animal.temperament && animal.temperament.toLowerCase().includes(searchText)
+                (animal.breed === filters.breed) || (animal.name === filters.breed)
             );
         }
 
+        // Filtro Idade
+        const minAge = parseInt(filters.minAge);
+        if (!isNaN(minAge) && minAge > 0) {
+            filteredList = filteredList.filter(animal => {
+                let ageVal = animal.age ? parseInt(animal.age) : 0;
+                // Suporte para dados antigos (life_span)
+                if (!ageVal && animal.life_span) {
+                    ageVal = parseInt(animal.life_span.replace(/\D/g, ""));
+                }
+                return ageVal >= minAge;
+            });
+        }
+
+        // Filtro Temperamento
+        if (filters.temperament?.trim()) {
+            const search = filters.temperament.toLowerCase().trim();
+            filteredList = filteredList.filter(a =>
+                a.temperament && a.temperament.toLowerCase().includes(search)
+            );
+        }
         return filteredList;
     };
 
     const filteredAnimals = getFilteredAnimals();
 
-    if (loading) {
-        return <ActivityIndicator size="large" color="#FFC0CB" style={styles.loader} />;
-    }
-
-    if (error) {
-        return (
-            <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-                <Text style={{ color: "#FF69B4", fontSize: 16 }}>{error}</Text>
-            </View>
-        );
-    }
-
-    // ⭐️ NOVA FUNÇÃO: Trata o clique e o feedback ⭐️
-    const handleToggleFavorite = (animalId) => {
-        const isFavorite = favorites.includes(animalId);
-
-        PetActions.toggleFavorite(animalId);
-
-        const message = isFavorite ? 'Removido dos Favoritos!' : 'Adicionado aos Favoritos!';
-        setFeedbackMessage({ id: animalId, text: message });
-
-        setTimeout(() => {
-            setFeedbackMessage({ id: null, text: '' });
-        }, 2000);
+    // --- FAVORITOS ---
+    const handleToggleFavorite = (id) => {
+        PetActions.toggleFavorite(id);
+        const isFav = favorites.includes(id);
+        setFeedbackMessage({ id, text: isFav ? 'Removido!' : 'Guardado!' });
+        setTimeout(() => setFeedbackMessage({ id: null, text: '' }), 1500);
     };
 
+    // --- APAGAR ANIMAL ---
+    const handleDeleteAnimal = (animalId, ownerId) => {
+        Alert.alert("Apagar", "Tens a certeza?", [
+            { text: "Cancelar" },
+            {
+                text: "Sim, Apagar",
+                onPress: () => PetActions.deleteAnimal(animalId, ownerId)
+            }
+        ]);
+    };
 
-    const renderFavoriteIcon = (item) => {
-        if (!isLoggedIn) return null;
-        const isFavorite = favorites.includes(item.id);
-
-        // Se a imagem for transparente, o tintColor funcionará para mudar a cor do coração.
-        const tintColorStyle = { tintColor: isFavorite ? '#FF69B4' : '#FFC0CB' };
+    const renderDeleteButton = (item) => {
+        if (!userId) return null;
+        // ⚠️ CORREÇÃO 2: Compara o ID de quem adicionou com o teu ID atual
+        if (!item.addedById || String(item.addedById) !== String(userId)) return null;
 
         return (
-            <TouchableOpacity
-                style={styles.favoriteButton}
-                onPress={() => handleToggleFavorite(item.id)} // Usa a nova função
-            >
-                <Image
-                    source={FAVORITE_ICON}
-                    style={[styles.customIcon, tintColorStyle]}
-                />
+            <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteAnimal(item.id, item.addedById)}>
+                <Text style={styles.deleteButtonText}>Apagar</Text>
             </TouchableOpacity>
         );
     };
 
-    const renderAdoptionButton = (item) => {
-        const adoptionStatus = adoptionRequests[item.id];
-        let buttonText;
-        let buttonStyle = styles.adoptButton;
-        let isDisabled = false;
-
-        switch (adoptionStatus) {
-            case 'pending':
-                buttonText = "PROCESSANDO...";
-                isDisabled = true;
-                buttonStyle = [styles.adoptButton, styles.pendingButton];
-                break;
-            case 'success':
-                buttonText = "PEDIDO ENVIADO";
-                isDisabled = true;
-                buttonStyle = [styles.adoptButton, styles.successButton];
-                break;
-            case 'fail':
-                buttonText = "TENTAR NOVAMENTE";
-                buttonStyle = [styles.adoptButton, styles.failButton];
-                break;
-            default:
-                buttonText = "ADOTAR";
-                break;
-        }
-
-        return (
-            <TouchableOpacity
-                style={buttonStyle}
-                onPress={() => handleAdoption(item.id)}
-                disabled={isDisabled}
-            >
-                {adoptionStatus === 'pending' ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={styles.adoptButtonText}>{buttonText}</Text>
-                )}
-            </TouchableOpacity>
-        );
-    };
+    // --- RENDER ---
+    if (loading) return <ActivityIndicator size="large" color="#FF69B4" style={styles.loader} />;
 
     return (
         <View style={styles.container}>
-            {/* FILTROS */}
+            {/* Filtros */}
             <View style={styles.filterContainer}>
                 <Picker
                     selectedValue={filters.breed || 'Todos'}
                     style={styles.pickerStyle}
-                    onValueChange={(itemValue) => PetActions.setFilter('breed', itemValue)}
+                    onValueChange={(val) => PetActions.setFilter('breed', val)}
                 >
-                    <Picker.Item key="Todos" label="Todos" value="Todos" />
-                    {breeds?.map(breed => (
-                        <Picker.Item key={breed} label={breed} value={breed} />
+                    <Picker.Item label="Todos" value="Todos" />
+                    {/* ⚠️ CORREÇÃO 3: O '?' evita o erro se a lista estiver vazia */}
+                    {breeds?.map((b, index) => (
+                        <Picker.Item key={index} label={b} value={b} />
                     ))}
                 </Picker>
 
                 <TextInput
                     style={styles.textInputStyle}
-                    placeholder="Idade (Anos)"
+                    placeholder="Idade min."
                     keyboardType="numeric"
-                    placeholderTextColor="#FFB6C1"
-                    value={filters.minAge}
-                    onChangeText={(text) => PetActions.setFilter('minAge', text)}
+                    onChangeText={(t) => PetActions.setFilter('minAge', t)}
                 />
             </View>
 
             <TextInput
                 style={[styles.textInputStyle, styles.temperamentSearch]}
-                placeholder="Pesquisar Temperamento (Ex: Corajoso, Leal)"
-                placeholderTextColor="#FFB6C1"
-                value={filters.temperament}
-                onChangeText={(text) => PetActions.setFilter('temperament', text)}
+                placeholder="Pesquisar Temperamento"
+                onChangeText={(t) => PetActions.setFilter('temperament', t)}
             />
 
-            {/* FLATLIST */}
+            {/* Lista */}
             <FlatList
                 data={filteredAnimals}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item) => item.id ? item.id.toString() : Math.random().toString()}
                 renderItem={({ item }) => {
-                    const photo = item.image?.url || item.photoUrl || "https://placehold.co/300x200";
-                    const displayBreed = item.breed || item.name;
+                    const photo = item.photoUrl || item.image?.url || "https://placehold.co/300x200";
+                    const isFav = favorites.includes(item.id);
+
                     return (
                         <View style={styles.card}>
-                            <Image source={{ uri: photo }} style={styles.image} resizeMode="cover" />
+                            <Image source={{ uri: photo }} style={styles.image} />
+
                             <View style={styles.info}>
                                 <View style={styles.headerContainer}>
                                     <Text style={styles.name}>{item.name}</Text>
-                                    {renderFavoriteIcon(item)}
+                                    {isLoggedIn && (
+                                        <TouchableOpacity onPress={() => handleToggleFavorite(item.id)}>
+                                            <Image
+                                                source={FAVORITE_ICON}
+                                                style={[styles.customIcon, { tintColor: isFav ? '#FF69B4' : '#FFC0CB' }]}
+                                            />
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
 
-                                {/* ⭐️ EXIBIR FEEDBACK TEMPORÁRIO AQUI ⭐️ */}
-                                {feedbackMessage.id === item.id && (
-                                    <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>
-                                )}
+                                {feedbackMessage.id === item.id && <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>}
 
-                                {displayBreed && item.name !== displayBreed && (
-                                    <Text style={styles.breedText}>{displayBreed}</Text>
-                                )}
-
-                                <View style={styles.separator} />
+                                <Text style={styles.breedText}>{item.breed || "Raça desconhecida"}</Text>
+                                {item.addedBy && <Text style={styles.authorText}>Por: {item.addedBy}</Text>}
 
                                 <View style={styles.detailsContainer}>
-                                    {item.life_span && (
-                                        <View style={styles.detailItem}>
-                                            <Text style={styles.detailLabel}>Tempo de Vida:</Text>
-                                            <Text style={styles.detailValue}>{item.life_span}</Text>
-                                        </View>
-                                    )}
-                                    {item.age && (
-                                        <View style={styles.detailItem}>
-                                            <Text style={styles.detailLabel}>Idade:</Text>
-                                            <Text style={styles.detailValue}>{item.age} anos</Text>
-                                        </View>
-                                    )}
-                                    {item.temperament && (
-                                        <View style={styles.detailItem}>
-                                            <Text style={styles.detailLabel}>Temperamento:</Text>
-                                            <Text style={styles.detailValue}>{item.temperament}</Text>
-                                        </View>
-                                    )}
+                                    <Text style={styles.detailValue}>{item.age ? item.age + " anos" : "Jovem"}</Text>
+                                    <Text style={styles.detailValue}>{item.temperament}</Text>
                                 </View>
 
-                                {renderAdoptionButton(item)}
+                                {/* Botões de Ação */}
+                                <TouchableOpacity
+                                    style={styles.adoptButton}
+                                    onPress={() => handleAdoption(item.id)}
+                                >
+                                    <Text style={styles.adoptButtonText}>ADOTAR</Text>
+                                </TouchableOpacity>
+
+                                {renderDeleteButton(item)}
                             </View>
                         </View>
                     );
                 }}
             />
 
-            {/* BOTÃO FLUTUANTE (+) - Navega para AddAnimal (Manter) */}
-            <TouchableOpacity
-                style={styles.fab}
-                onPress={() => navigation.navigate('AddAnimal')}
-            >
+            <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddAnimal')}>
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
-
-            {/* ❌ O BOTÃO FAVORITOS FOI REMOVIDO DAQUI E DEVE ESTAR NO TAB NAVIGATOR ❌ */}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#FFF0F5" }, // rosa bebê suave
+    container: { flex: 1, backgroundColor: "#FFF0F5" },
     loader: { flex: 1, justifyContent: "center" },
-    card: {
-        margin: 15,
-        backgroundColor: "#FFE4E1", // card rosa bebê
-        borderRadius: 15,
-        overflow: "hidden",
-        elevation: 3,
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 2 },
-        paddingBottom: 10,
-    },
+    card: { margin: 15, backgroundColor: "#FFE4E1", borderRadius: 15, overflow: "hidden", elevation: 3 },
     image: { width: "100%", height: 250, backgroundColor: "#FFC0CB" },
     info: { padding: 15 },
-    headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
-
-    customIcon: { width: 30, height: 30, resizeMode: 'contain' },
-    favoriteButton: { padding: 8 },
-
-    // ⭐️ NOVO ESTILO: Texto de Feedback Temporário ⭐️
-    feedbackText: {
-        fontSize: 14,
-        color: '#FF1493', // Deep Pink
-        textAlign: 'right',
-        marginTop: -5,
-        marginBottom: 5,
-        fontWeight: 'bold',
-    },
-
-    separator: { height: 1, backgroundColor: '#FFB6C1', marginVertical: 10 },
-    detailsContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 10 },
-    detailItem: { width: '48%', marginBottom: 10 },
-    detailLabel: { fontSize: 14, fontWeight: 'bold', color: '#FF69B4' },
-    detailValue: { fontSize: 16, color: '#880E4F', marginTop: 2 },
-
-    filterContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between', // Distribuir o espaço uniformemente
-        padding: 5,
-        backgroundColor: '#FFDDE6',
-        borderBottomWidth: 1,
-        borderBottomColor: '#FFB6C1',
-        width: '100%',
-        paddingHorizontal: 10,
-    },
-
-    pickerStyle: {
-        height: 40,
-        width: '45%',
-        color: '#333',
-        backgroundColor: '#fff',
-        borderRadius: 5,
-        borderWidth: 1,
-        borderColor: '#FFB6C1',
-        marginLeft: 0,
-        paddingLeft: 8,
-        // ⭐️ TAMANHO DA LETRA MAIS PEQUENO ⭐️
-        fontSize: 10,
-        // ⭐️ CENTRALIZAR O TEXTO VISÍVEL NO COMPONENTE PICKER ⭐️
-        textAlign: 'center',
-    },
-
-    textInputStyle: {
-        height: 40,
-        width: '45%',
-        borderColor: '#FFB6C1',
-        borderWidth: 1,
-        borderRadius: 5,
-        paddingHorizontal: 10,
-        backgroundColor: '#fff',
-        color: '#880E4F'
-    },
-
-    temperamentSearch: { width: '95%', marginVertical: 5, alignSelf: 'center' },
-    adoptButton: { backgroundColor: '#FFB6C1', padding: 12, borderRadius: 8, marginTop: 15, alignItems: 'center' },
-    adoptButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-    pendingButton: { backgroundColor: '#FFC0CB' },
-    successButton: { backgroundColor: '#FF69B4' },
-    failButton: { backgroundColor: '#FF1493' },
-
-    breedText: {
-        fontSize: 18,
-        color: '#FF69B4',
-        marginBottom: 8,
-        marginTop: -5,
-        fontWeight: '500',
-    },
-
-    // BOTÃO FLUTUANTE (+)
-    fab: {
-        position: 'absolute',
-        bottom: 30,
-        right: 30,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#FF69B4',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOpacity: 0.3,
-        shadowOffset: { width: 0, height: 3 },
-        shadowRadius: 3,
-    },
+    breedText: { fontSize: 18, color: '#880E4F', marginBottom: 5 },
+    authorText: { fontSize: 12, color: '#880E4F', fontStyle: 'italic', marginBottom: 10 },
+    detailsContainer: { flexDirection: 'row', gap: 15, marginBottom: 10 },
+    detailValue: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
+    adoptButton: { backgroundColor: '#FFB6C1', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 5 },
+    adoptButtonText: { color: '#fff', fontWeight: 'bold' },
+    deleteButton: { backgroundColor: '#D81B60', padding: 8, borderRadius: 8, marginTop: 10, alignItems: 'center' },
+    deleteButtonText: { color: '#fff', fontWeight: 'bold' },
+    filterContainer: { flexDirection: 'row', padding: 10, gap: 10 },
+    pickerStyle: { flex: 1, backgroundColor: '#fff', height: 50 },
+    textInputStyle: { flex: 1, backgroundColor: '#fff', padding: 10, borderRadius: 5, height: 50 },
+    temperamentSearch: { marginHorizontal: 10, marginBottom: 5 },
+    feedbackText: { color: '#FF1493', textAlign: 'right', fontWeight: 'bold' },
+    customIcon: { width: 30, height: 30 },
+    fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
 });
