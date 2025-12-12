@@ -17,13 +17,12 @@ import {
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
 
-// ⚠️ ATENÇÃO: Se estiveres a usar o sistema de Actions/Store, devias usar PetActions aqui também.
-// Se preferires usar a API direta, certifica-te que o import está correto para o teu ficheiro 'restDB.js'
-import { addAnimal } from "../api/animalsAPI"; // Ou "../API/restDB" se mudaste o nome
+// Importações FLUX necessárias
 import AuthStore from "../stores/AuthStore";
-import { PetActions } from "../actions/PetActions"; // Recomendado usar Actions para atualizar o Feed automático
+import { PetActions } from "../actions/PetActions";
+// ❌ REMOVER: import { addAnimal } from "../api/animalsAPI"; // Usaremos PetActions em vez da API direta
 
-// --- Hook para observar o AuthStore ---
+// --- Hook para observar o AuthStore (para obter o ID do utilizador) ---
 function useAuthStoreState() {
     const [state, setState] = useState(AuthStore.getState());
     useEffect(() => {
@@ -44,12 +43,12 @@ export default function AddAnimalScreen({ navigation }) {
     const [photo, setPhoto] = useState(null);
     const [location, setLocation] = useState("");
     const [loadingLocation, setLoadingLocation] = useState(false);
+    const [isSaving, setIsSaving] = useState(false); // Novo estado para o botão de salvar
 
     const { user } = useAuthStoreState();
-    // Garante que apanha o ID, seja _id ou id
-    const userId = user?._id || user?.id;
+    const userId = user?._id || user?.id; // Garante que apanha o ID
 
-    // --- Permissões ---
+    // --- Permissões (Inalterado) ---
     const requestLocationPermission = async () => {
         if (Platform.OS === 'android') {
             try {
@@ -80,7 +79,7 @@ export default function AddAnimalScreen({ navigation }) {
         return true;
     };
 
-    // --- Fotos ---
+    // --- Fotos (Inalterado) ---
     const tirarFoto = async () => {
         const hasPermission = await requestCameraPermission();
         if (!hasPermission) {
@@ -106,7 +105,7 @@ export default function AddAnimalScreen({ navigation }) {
         });
     };
 
-    // --- Localização ---
+    // --- Localização (Inalterado) ---
     const obterLocalizacao = async () => {
         setLoadingLocation(true);
         const hasPermission = await requestLocationPermission();
@@ -142,47 +141,42 @@ export default function AddAnimalScreen({ navigation }) {
             return;
         }
 
-        // --- CORREÇÃO PRINCIPAL AQUI ---
+        setIsSaving(true); // Inicia o estado de salvamento
+
         const newAnimal = {
             name,
             breed,
-            age: Number(age), // RestDB espera número
+            age: Number(age),
             temperament,
             contactNumber,
-            photoUrl: photo, // Nome correto da coluna no RestDB
+            photoUrl: photo,
             location,
 
-            // Nome para mostrar no Feed (Ex: "Publicado por: Ana")
-            addedBy: user?.name || user?.email || "Utilizador",
+            // ⭐️ CORREÇÃO PRINCIPAL: Priorizar user.name ou user.email como "username" ⭐️
+            addedBy: user?.username || user?.name || "Utilizador",
 
-            // ID CRÍTICO para o botão de apagar funcionar
             addedById: userId,
-
             createdAt: new Date().toISOString(),
         };
 
         try {
-            // Se tiveres PetActions implementado, usa este:
-            // const result = await PetActions.addAnimal(newAnimal);
+            // ⭐️ USO CORRETO DO PETACTIONS ⭐️
+            const success = await PetActions.addAnimal(newAnimal);
 
-            // Se estiveres a usar a API direta:
-            const result = await addAnimal(newAnimal);
-
-            if (!result) {
-                Alert.alert("Erro", "Ocorreu um erro ao salvar. Verifique a foto ou a API.");
+            if (!success) {
+                // A ação deve despachar um FAIL se houver erro, mas mostramos o Alerta:
+                Alert.alert("Erro", "Ocorreu um erro ao salvar o animal.");
                 return;
             }
 
-            Alert.alert("Sucesso", "Animal adicionado com sucesso!");
-
-            // Se usares Actions, isto não é preciso, mas mal não faz:
-            PetActions.loadAnimals();
-
+            Alert.alert("Sucesso", "Animal adicionado com sucesso e visível no Feed!");
             navigation.goBack();
 
         } catch (error) {
-            console.error(error);
+            console.error("Erro na submissão:", error);
             Alert.alert("Erro", "Falha ao enviar dados.");
+        } finally {
+            setIsSaving(false); // Termina o estado de salvamento
         }
     };
 
@@ -208,7 +202,7 @@ export default function AddAnimalScreen({ navigation }) {
 
             <Text style={styles.label}>Localização Atual</Text>
             <View style={styles.locationContainer}>
-                <TouchableOpacity style={styles.locationButton} onPress={obterLocalizacao}>
+                <TouchableOpacity style={styles.locationButton} onPress={obterLocalizacao} disabled={loadingLocation}>
                     {loadingLocation ? <ActivityIndicator color="#FFF" /> : <Text style={styles.locationButtonText}>📍 Obter Localização</Text>}
                 </TouchableOpacity>
                 <TextInput style={[styles.input, styles.locationInput]} placeholder="Coordenadas aparecerão aqui..." placeholderTextColor="#FFB6C1" value={location} onChangeText={setLocation} />
@@ -222,14 +216,18 @@ export default function AddAnimalScreen({ navigation }) {
 
             {photo && <Image source={{ uri: photo }} style={styles.previewImage} />}
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-                <Text style={styles.saveButtonText}>Salvar Animal</Text>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSubmit} disabled={isSaving}>
+                {isSaving ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                    <Text style={styles.saveButtonText}>Salvar Animal</Text>
+                )}
             </TouchableOpacity>
         </ScrollView>
     );
 }
 
-// --- Estilos ---
+// --- Estilos (Inalterado) ---
 const styles = StyleSheet.create({
     container: { flexGrow: 1, padding: 25, backgroundColor: "#FFF0F5" },
     title: { fontSize: 30, fontWeight: "bold", color: "#D81B60", textAlign: "center", marginBottom: 10, marginTop: 10 },
