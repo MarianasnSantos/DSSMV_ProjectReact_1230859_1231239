@@ -16,11 +16,13 @@ import {
 } from "react-native";
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
+import { Picker } from '@react-native-picker/picker'; // ⭐️ IMPORTAR PICKER ⭐️
 
 // Importações FLUX necessárias
 import AuthStore from "../stores/AuthStore";
+import PetStore from "../stores/PetStore"; // ⭐️ IMPORTAR PETSTORE ⭐️
 import { PetActions } from "../actions/PetActions";
-// ❌ REMOVER: import { addAnimal } from "../api/animalsAPI"; // Usaremos PetActions em vez da API direta
+// ❌ REMOVER: import { addAnimal } from "../api/animalsAPI";
 
 // --- Hook para observar o AuthStore (para obter o ID do utilizador) ---
 function useAuthStoreState() {
@@ -33,20 +35,41 @@ function useAuthStoreState() {
     return state;
 }
 
+// --- Hook para observar o PetStore (para obter a lista de raças) ---
+function usePetStoreState() {
+    const [state, setState] = useState(PetStore.getState());
+    useEffect(() => {
+        const handleChange = () => setState(PetStore.getState());
+        PetStore.addChangeListener(handleChange);
+        return () => PetStore.removeListener(handleChange);
+    }, []);
+    return state;
+}
+
 export default function AddAnimalScreen({ navigation }) {
 
     const [name, setName] = useState("");
-    const [breed, setBreed] = useState("");
+    const [breed, setBreed] = useState("Raça Indefinida"); // ⭐️ Estado inicial para o Picker ⭐️
     const [age, setAge] = useState("");
     const [temperament, setTemperament] = useState("");
     const [contactNumber, setContactNumber] = useState("");
     const [photo, setPhoto] = useState(null);
     const [location, setLocation] = useState("");
     const [loadingLocation, setLoadingLocation] = useState(false);
-    const [isSaving, setIsSaving] = useState(false); // Novo estado para o botão de salvar
+    const [isSaving, setIsSaving] = useState(false);
 
     const { user } = useAuthStoreState();
-    const userId = user?._id || user?.id; // Garante que apanha o ID
+    const { breeds } = usePetStoreState(); // ⭐️ Obter lista de raças ⭐️
+
+    const userId = user?._id || user?.id;
+
+    // --- Efeito para carregar as raças se não estiverem disponíveis ---
+    useEffect(() => {
+        if (breeds.length <= 1) { // Verifica se só tem o valor padrão 'Todos'
+            PetActions.loadAnimals(); // Isto carrega animais e raças
+        }
+    }, [breeds.length]);
+
 
     // --- Permissões (Inalterado) ---
     const requestLocationPermission = async () => {
@@ -141,30 +164,29 @@ export default function AddAnimalScreen({ navigation }) {
             return;
         }
 
-        setIsSaving(true); // Inicia o estado de salvamento
+        setIsSaving(true);
+
+        // A Raça será o valor selecionado no Picker (breed)
+        const finalBreed = breed === "Raça Indefinida" ? "" : breed;
 
         const newAnimal = {
             name,
-            breed,
+            breed: finalBreed, // Usar o valor do Picker
             age: Number(age),
             temperament,
             contactNumber,
             photoUrl: photo,
             location,
 
-            // ⭐️ CORREÇÃO PRINCIPAL: Priorizar user.name ou user.email como "username" ⭐️
             addedBy: user?.username || user?.name || "Utilizador",
-
             addedById: userId,
             createdAt: new Date().toISOString(),
         };
 
         try {
-            // ⭐️ USO CORRETO DO PETACTIONS ⭐️
             const success = await PetActions.addAnimal(newAnimal);
 
             if (!success) {
-                // A ação deve despachar um FAIL se houver erro, mas mostramos o Alerta:
                 Alert.alert("Erro", "Ocorreu um erro ao salvar o animal.");
                 return;
             }
@@ -176,7 +198,7 @@ export default function AddAnimalScreen({ navigation }) {
             console.error("Erro na submissão:", error);
             Alert.alert("Erro", "Falha ao enviar dados.");
         } finally {
-            setIsSaving(false); // Termina o estado de salvamento
+            setIsSaving(false);
         }
     };
 
@@ -189,7 +211,23 @@ export default function AddAnimalScreen({ navigation }) {
             <TextInput style={styles.input} placeholder="Ex: Boby" placeholderTextColor="#FFB6C1" value={name} onChangeText={setName} />
 
             <Text style={styles.label}>Raça</Text>
-            <TextInput style={styles.input} placeholder="Ex: Labrador" placeholderTextColor="#FFB6C1" value={breed} onChangeText={setBreed} />
+            {/* ⭐️ PICKER SUBSTITUI TEXTINPUT ⭐️ */}
+            <View style={styles.pickerContainer}>
+                <Picker
+                    selectedValue={breed}
+                    style={styles.pickerInput}
+                    onValueChange={(itemValue) => setBreed(itemValue)}
+                >
+                    <Picker.Item key="Indefinida" label="Raça Indefinida" value="Raça Indefinida" />
+
+                    {/* Filtra o "Todos" que vem do PetStore */}
+                    {breeds?.filter(b => b !== 'Todos').map((b, index) => (
+                        <Picker.Item key={index} label={b} value={b} />
+                    ))}
+                </Picker>
+            </View>
+            {/* FIM PICKER */}
+
 
             <Text style={styles.label}>Idade (anos)</Text>
             <TextInput style={styles.input} placeholder="Ex: 2" placeholderTextColor="#FFB6C1" value={age} onChangeText={setAge} keyboardType="numeric" />
@@ -227,7 +265,7 @@ export default function AddAnimalScreen({ navigation }) {
     );
 }
 
-// --- Estilos (Inalterado) ---
+// --- Estilos ---
 const styles = StyleSheet.create({
     container: { flexGrow: 1, padding: 25, backgroundColor: "#FFF0F5" },
     title: { fontSize: 30, fontWeight: "bold", color: "#D81B60", textAlign: "center", marginBottom: 10, marginTop: 10 },
@@ -245,6 +283,22 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 },
+    },
+    // ⭐️ NOVO ESTILO PARA CONTAINER DO PICKER ⭐️
+    pickerContainer: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 15,
+        borderWidth: 1.5,
+        borderColor: "#FFB6C1",
+        elevation: 3,
+        shadowColor: "#FF69B4",
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+        overflow: 'hidden', // Importante para o Android
+    },
+    pickerInput: {
+        color: "#880E4F",
     },
     locationContainer: { gap: 10 },
     locationButton: { backgroundColor: "#FF69B4", padding: 12, borderRadius: 15, alignItems: "center", elevation: 2 },
