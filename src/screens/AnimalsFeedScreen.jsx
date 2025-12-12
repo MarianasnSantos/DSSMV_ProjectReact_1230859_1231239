@@ -1,15 +1,20 @@
+// src/screens/AnimalsFeedScreen.jsx
+
 import React, { useEffect, useState } from "react";
 import {
     View, Text, FlatList, Image, ActivityIndicator, StyleSheet,
-    TouchableOpacity, TextInput, Alert
+    TouchableOpacity, TextInput, Alert,
+    // ⭐️ IMPORTAÇÕES ADICIONADAS ⭐️
+    KeyboardAvoidingView, Platform
 } from "react-native";
 import { Picker } from '@react-native-picker/picker';
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 
-const FAVORITE_ICON = require('../assets/favoritar.jpg');
+const FAVORITE_ICON = require('../assets/favoritar.jpg'); // Caminho corrigido
 
+// --- Hooks/Auxiliares (Inalterado) ---
 function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
@@ -39,7 +44,6 @@ const handleAdoption = (animalId) => {
 };
 
 export default function AnimalsFeedScreen({ navigation }) {
-    // ⚠️ CORREÇÃO 1: Usamos 'breeds' (nome novo) e damos valor padrão []
     const {
         animals = [],
         loading = false,
@@ -56,12 +60,12 @@ export default function AnimalsFeedScreen({ navigation }) {
         PetActions.loadAnimals();
     }, []);
 
-    // --- FILTROS ---
+    // --- FILTROS (Inalterado) ---
     const getFilteredAnimals = () => {
         let filteredList = animals;
 
         // Filtro Raça
-        if (filters.breed && filters.breed !== 'Todos') {
+        if (filters.breed && filters.breed !== 'Raças') {
             filteredList = filteredList.filter(animal =>
                 (animal.breed === filters.breed) || (animal.name === filters.breed)
             );
@@ -72,7 +76,6 @@ export default function AnimalsFeedScreen({ navigation }) {
         if (!isNaN(minAge) && minAge > 0) {
             filteredList = filteredList.filter(animal => {
                 let ageVal = animal.age ? parseInt(animal.age) : 0;
-                // Suporte para dados antigos (life_span)
                 if (!ageVal && animal.life_span) {
                     ageVal = parseInt(animal.life_span.replace(/\D/g, ""));
                 }
@@ -92,7 +95,7 @@ export default function AnimalsFeedScreen({ navigation }) {
 
     const filteredAnimals = getFilteredAnimals();
 
-    // --- FAVORITOS ---
+    // --- FAVORITOS (Inalterado) ---
     const handleToggleFavorite = (id) => {
         PetActions.toggleFavorite(id);
         const isFav = favorites.includes(id);
@@ -100,7 +103,7 @@ export default function AnimalsFeedScreen({ navigation }) {
         setTimeout(() => setFeedbackMessage({ id: null, text: '' }), 1500);
     };
 
-    // --- APAGAR ANIMAL ---
+    // --- APAGAR ANIMAL (Inalterado) ---
     const handleDeleteAnimal = (animalId, ownerId) => {
         Alert.alert("Apagar", "Tens a certeza?", [
             { text: "Cancelar" },
@@ -113,7 +116,6 @@ export default function AnimalsFeedScreen({ navigation }) {
 
     const renderDeleteButton = (item) => {
         if (!userId) return null;
-        // ⚠️ CORREÇÃO 2: Compara o ID de quem adicionou com o teu ID atual
         if (!item.addedById || String(item.addedById) !== String(userId)) return null;
 
         return (
@@ -127,7 +129,14 @@ export default function AnimalsFeedScreen({ navigation }) {
     if (loading) return <ActivityIndicator size="large" color="#FF69B4" style={styles.loader} />;
 
     return (
-        <View style={styles.container}>
+        // ⭐️ IMPLEMENTAÇÃO DO KEYBOARDAVOIDINGVIEW ⭐️
+        <KeyboardAvoidingView
+            style={styles.container}
+            // Ajustar o comportamento consoante a plataforma
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            // O offset pode ser ajustado se o teclado ainda cobrir o input
+            keyboardVerticalOffset={0}
+        >
             {/* Filtros */}
             <View style={styles.filterContainer}>
                 <Picker
@@ -136,7 +145,6 @@ export default function AnimalsFeedScreen({ navigation }) {
                     onValueChange={(val) => PetActions.setFilter('breed', val)}
                 >
                     <Picker.Item label="Todos" value="Todos" />
-                    {/* ⚠️ CORREÇÃO 3: O '?' evita o erro se a lista estiver vazia */}
                     {breeds?.map((b, index) => (
                         <Picker.Item key={index} label={b} value={b} />
                     ))}
@@ -144,16 +152,22 @@ export default function AnimalsFeedScreen({ navigation }) {
 
                 <TextInput
                     style={styles.textInputStyle}
-                    placeholder="Idade min."
+                    placeholder="Idade (Anos)"
                     keyboardType="numeric"
-                    onChangeText={(t) => PetActions.setFilter('minAge', t)}
+                    placeholderTextColor="#000000"
+                    value={filters.minAge}
+                    onChangeText={(text) => PetActions.setFilter('minAge', text)}
                 />
-            </View>
 
+            </View>
             <TextInput
-                style={[styles.textInputStyle, styles.temperamentSearch]}
-                placeholder="Pesquisar Temperamento"
-                onChangeText={(t) => PetActions.setFilter('temperament', t)}
+                // ⭐️ USAR APENAS O ESTILO NOVO ⭐️
+                style={styles.fullWidthSearchInput}
+                placeholder="Pesquisar Temperamento (Ex: Corajoso, Leal)"
+                placeholderTextColor="#000000"
+                value={filters.temperament}
+                onChangeText={(text) => PetActions.setFilter('temperament', text)}
+                multiline={false}
             />
 
             {/* Lista */}
@@ -189,6 +203,13 @@ export default function AnimalsFeedScreen({ navigation }) {
                                 <View style={styles.detailsContainer}>
                                     <Text style={styles.detailValue}>{item.age ? item.age + " anos" : "Jovem"}</Text>
                                     <Text style={styles.detailValue}>{item.temperament}</Text>
+                                    {item.contactNumber && (
+                                        // Usamos o contactText para dar um estilo próprio
+                                        <Text style={styles.contactText}>
+                                            Contacto: {item.contactNumber}
+                                        </Text>
+                                    )}
+
                                 </View>
 
                                 {/* Botões de Ação */}
@@ -209,7 +230,7 @@ export default function AnimalsFeedScreen({ navigation }) {
             <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddAnimal')}>
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -225,6 +246,13 @@ const styles = StyleSheet.create({
     authorText: { fontSize: 14, color: '#D81B60', fontStyle: 'italic', marginBottom: 10 },
     detailsContainer: { flexDirection: 'row', gap: 15, marginBottom: 10 },
     detailValue: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
+    contactText: {
+        fontSize: 14,
+        color: '#D81B60', // Rosa Escuro para destacar
+        marginTop: 5,
+        fontWeight: 'bold',
+        width: '100%', // Para garantir que ocupa a largura total no container
+    },
     adoptButton: { backgroundColor: '#FFB6C1', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 5 },
     adoptButtonText: { color: '#fff', fontWeight: 'bold' },
     deleteButton: { backgroundColor: '#D81B60', padding: 8, borderRadius: 8, marginTop: 10, alignItems: 'center' },
@@ -232,7 +260,7 @@ const styles = StyleSheet.create({
     filterContainer: {
         flexDirection: 'row',
         padding: 10,
-        gap: 10 // Mantém o espaçamento entre elementos
+        gap: 10
     },
     pickerStyle: {
         flex: 1,
@@ -241,9 +269,8 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         borderWidth: 1,
         borderColor: '#FFB6C1',
-        fontSize: 16,
-        // ⭐️ CORREÇÃO: Definir cor de texto escura ⭐️
         color: '#333333',
+        fontSize: 16,
         paddingLeft: 10,
     },
     textInputStyle: {
@@ -255,22 +282,22 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#FFB6C1',
         fontSize: 16,
-        // ⭐️ CORREÇÃO: Usar cor escura para o texto ⭐️
         color: '#333333',
     },
     temperamentSearch: {
+
         marginHorizontal: 10,
         marginBottom: 5,
-        // Garante que o input debaixo também tem altura de 50px
+
+        // MANTER ALTURA FIXA E ESTILOS
         height: 50,
-        // Adicionar estilos de input para consistência:
         backgroundColor: '#fff',
         borderRadius: 5,
         borderWidth: 1,
         borderColor: '#FFB6C1',
         padding: 10,
         fontSize: 16,
-        color: '#880E4F',
+        color: '#333333',
     },
     feedbackText: { color: '#FF1493', textAlign: 'right', fontWeight: 'bold' },
     customIcon: { width: 30, height: 30 },
