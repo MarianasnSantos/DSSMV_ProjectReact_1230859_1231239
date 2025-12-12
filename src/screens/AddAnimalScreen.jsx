@@ -16,13 +16,13 @@ import {
 } from "react-native";
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
-import { Picker } from '@react-native-picker/picker'; // ⭐️ IMPORTAR PICKER ⭐️
+import { Picker } from '@react-native-picker/picker';
 
 // Importações FLUX necessárias
 import AuthStore from "../stores/AuthStore";
-import PetStore from "../stores/PetStore"; // ⭐️ IMPORTAR PETSTORE ⭐️
+import PetStore from "../stores/PetStore";
 import { PetActions } from "../actions/PetActions";
-// ❌ REMOVER: import { addAnimal } from "../api/animalsAPI";
+
 
 // --- Hook para observar o AuthStore (para obter o ID do utilizador) ---
 function useAuthStoreState() {
@@ -46,10 +46,14 @@ function usePetStoreState() {
     return state;
 }
 
+// Variável para URL da API de Raças (Pode precisar de uma chave API no seu projeto real)
+const DOG_API_URL = "https://api.thedogapi.com/v1";
+
 export default function AddAnimalScreen({ navigation }) {
 
     const [name, setName] = useState("");
-    const [breed, setBreed] = useState("Sem Raça"); // ⭐️ Estado inicial para o Picker ⭐️
+    // Estado inicial com a opção "Sem Raça"
+    const [breed, setBreed] = useState("Sem Raça");
     const [age, setAge] = useState("");
     const [temperament, setTemperament] = useState("");
     const [contactNumber, setContactNumber] = useState("");
@@ -57,21 +61,61 @@ export default function AddAnimalScreen({ navigation }) {
     const [location, setLocation] = useState("");
     const [loadingLocation, setLoadingLocation] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isFetchingTemperament, setIsFetchingTemperament] = useState(false); // Estado de loading para o temperamento
 
     const { user } = useAuthStoreState();
-    const { breeds } = usePetStoreState(); // ⭐️ Obter lista de raças ⭐️
+    const { breeds } = usePetStoreState();
 
     const userId = user?._id || user?.id;
 
     // --- Efeito para carregar as raças se não estiverem disponíveis ---
     useEffect(() => {
-        if (breeds.length <= 1) { // Verifica se só tem o valor padrão 'Todos'
-            PetActions.loadAnimals(); // Isto carrega animais e raças
+        // Assume que 'Todos' é sempre o primeiro item se a lista for carregada
+        if (breeds.length <= 1) {
+            PetActions.loadAnimals();
         }
     }, [breeds.length]);
 
+    // --- Lógica de Temperamento Automático ---
+    const fetchTemperamentForBreed = async (selectedBreed) => {
+        setIsFetchingTemperament(true);
+        setTemperament(""); // Limpa enquanto procura
 
-    // --- Permissões (Inalterado) ---
+        try {
+            // Busca o temperamento usando o nome da raça
+            const response = await fetch(`${DOG_API_URL}/breeds/search?q=${selectedBreed}`);
+            const data = await response.json();
+
+            if (data && data.length > 0 && data[0].temperament) {
+                // Se encontrar, define o temperamento automaticamente
+                setTemperament(data[0].temperament);
+            } else {
+                // Se não encontrar, avisa e deixa para escrita manual
+                Alert.alert("Aviso", `Temperamento para "${selectedBreed}" não encontrado na API. Por favor, escreva manualmente.`);
+            }
+        } catch (error) {
+            console.error("Erro ao obter temperamento da API:", error);
+            Alert.alert("Erro", "Falha na comunicação com a API de raças.");
+        } finally {
+            setIsFetchingTemperament(false);
+        }
+    };
+
+    // Handler para a mudança de Raça
+    const handleBreedChange = (itemValue) => {
+        setBreed(itemValue);
+
+        if (itemValue === "Sem Raça") {
+            setTemperament(""); // Limpa para escrita manual
+            return;
+        }
+
+        // Se for uma raça, tenta obter o temperamento automaticamente
+        fetchTemperamentForBreed(itemValue);
+    };
+
+
+    // --- Permissões e UI para Câmera/Galeria (Inalterado) ---
     const requestLocationPermission = async () => {
         if (Platform.OS === 'android') {
             try {
@@ -102,7 +146,6 @@ export default function AddAnimalScreen({ navigation }) {
         return true;
     };
 
-    // --- Fotos (Inalterado) ---
     const tirarFoto = async () => {
         const hasPermission = await requestCameraPermission();
         if (!hasPermission) {
@@ -128,7 +171,7 @@ export default function AddAnimalScreen({ navigation }) {
         });
     };
 
-    // --- Localização (Inalterado) ---
+    // --- Localização ---
     const obterLocalizacao = async () => {
         setLoadingLocation(true);
         const hasPermission = await requestLocationPermission();
@@ -154,8 +197,9 @@ export default function AddAnimalScreen({ navigation }) {
 
     // --- Submissão ---
     const handleSubmit = async () => {
-        if (!name || !breed || !contactNumber) {
-            Alert.alert("Erro", "Nome, Raça e Contacto são obrigatórios.");
+        // Validação adicional: Se for "Sem Raça", o Temperamento deve ser obrigatório
+        if (!name || !breed || !contactNumber || (breed === "Sem Raça" && !temperament)) {
+            Alert.alert("Erro", "Nome, Raça, Contacto são obrigatórios. Se não houver raça, o Temperamento é obrigatório.");
             return;
         }
 
@@ -166,12 +210,12 @@ export default function AddAnimalScreen({ navigation }) {
 
         setIsSaving(true);
 
-        // A Raça será o valor selecionado no Picker (breed)
+        // Se a raça for "Sem Raça", enviamos string vazia para o servidor
         const finalBreed = breed === "Sem Raça" ? "" : breed;
 
         const newAnimal = {
             name,
-            breed: finalBreed, // Usar o valor do Picker
+            breed: finalBreed,
             age: Number(age),
             temperament,
             contactNumber,
@@ -180,7 +224,7 @@ export default function AddAnimalScreen({ navigation }) {
 
             addedBy: user?.username || user?.name || "Utilizador",
             addedById: userId,
-            createdAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(), // Grava a data de publicação
         };
 
         try {
@@ -202,6 +246,12 @@ export default function AddAnimalScreen({ navigation }) {
         }
     };
 
+    // Determina se o campo de Temperamento deve ser manual (habilitado)
+    // É manual se: 1) for "Sem Raça" OU 2) estiver a carregar OU 3) o valor automático veio vazio
+    const isTemperamentManualInput = breed === "Sem Raça" || !temperament;
+    const isTemperamentEditable = isTemperamentManualInput;
+
+
     // --- UI ---
     return (
         <ScrollView contentContainerStyle={styles.container}>
@@ -211,29 +261,39 @@ export default function AddAnimalScreen({ navigation }) {
             <TextInput style={styles.input} placeholder="Ex: Boby" placeholderTextColor="#FFB6C1" value={name} onChangeText={setName} />
 
             <Text style={styles.label}>Raça</Text>
-            {/* ⭐️ PICKER SUBSTITUI TEXTINPUT ⭐️ */}
             <View style={styles.pickerContainer}>
                 <Picker
                     selectedValue={breed}
                     style={styles.pickerInput}
-                    onValueChange={(itemValue) => setBreed(itemValue)}
+                    onValueChange={handleBreedChange}
                 >
                     <Picker.Item key="SemRaça" label="Sem Raça" value="Sem Raça" />
 
-                    {/* Filtra o "Todos" que vem do PetStore */}
                     {breeds?.filter(b => b !== 'Todos').map((b, index) => (
                         <Picker.Item key={index} label={b} value={b} />
                     ))}
                 </Picker>
             </View>
-            {/* FIM PICKER */}
 
 
             <Text style={styles.label}>Idade (anos)</Text>
             <TextInput style={styles.input} placeholder="Ex: 2" placeholderTextColor="#FFB6C1" value={age} onChangeText={setAge} keyboardType="numeric" />
 
             <Text style={styles.label}>Temperamento</Text>
-            <TextInput style={styles.input} placeholder="Ex: Calmo, Brincalhão" placeholderTextColor="#FFB6C1" value={temperament} onChangeText={setTemperament} />
+            {/* INPUT DE TEMPERAMENTO COM LÓGICA DE AUTO-PREENCHIMENTO */}
+            <View style={styles.inputContainerWithStatus}>
+                <TextInput
+                    style={[styles.input, !isTemperamentEditable && styles.disabledInput]}
+                    placeholder={isFetchingTemperament ? "A obter Temperamento..." : "Ex: Calmo, Brincalhão"}
+                    placeholderTextColor={isFetchingTemperament ? "#FF69B4" : "#FFB6C1"}
+                    value={temperament}
+                    onChangeText={setTemperament}
+                    editable={isTemperamentEditable}
+                />
+                {isFetchingTemperament && (
+                    <ActivityIndicator style={styles.statusIndicator} size="small" color="#D81B60" />
+                )}
+            </View>
 
             <Text style={styles.label}>Contacto (Telemóvel)</Text>
             <TextInput style={styles.input} placeholder="Ex: 912345678" placeholderTextColor="#FFB6C1" value={contactNumber} onChangeText={setContactNumber} keyboardType="phone-pad" />
@@ -243,7 +303,14 @@ export default function AddAnimalScreen({ navigation }) {
                 <TouchableOpacity style={styles.locationButton} onPress={obterLocalizacao} disabled={loadingLocation}>
                     {loadingLocation ? <ActivityIndicator color="#FFF" /> : <Text style={styles.locationButtonText}>📍 Obter Localização</Text>}
                 </TouchableOpacity>
-                <TextInput style={[styles.input, styles.locationInput]} placeholder="Coordenadas aparecerão aqui..." placeholderTextColor="#FFB6C1" value={location} onChangeText={setLocation} />
+                <TextInput
+                    style={[styles.input, styles.locationInput]}
+                    placeholder="Coordenadas aparecerão aqui..."
+                    placeholderTextColor="#FFB6C1"
+                    value={location}
+                    onChangeText={setLocation}
+                    editable={!loadingLocation}
+                />
             </View>
 
             <Text style={styles.label}>Foto do Animal</Text>
@@ -284,7 +351,6 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 },
     },
-    // ⭐️ NOVO ESTILO PARA CONTAINER DO PICKER ⭐️
     pickerContainer: {
         backgroundColor: "#FFFFFF",
         borderRadius: 15,
@@ -295,7 +361,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 },
-        overflow: 'hidden', // Importante para o Android
+        overflow: 'hidden',
     },
     pickerInput: {
         color: "#880E4F",
@@ -312,4 +378,19 @@ const styles = StyleSheet.create({
     previewImage: { width: "100%", height: 200, borderRadius: 15, marginTop: 15, borderWidth: 2, borderColor: "#D81B60" },
     saveButton: { backgroundColor: "#D81B60", paddingVertical: 18, borderRadius: 30, alignItems: "center", marginTop: 40, marginBottom: 40, elevation: 5, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 3.84, shadowOffset: { width: 0, height: 2 }, },
     saveButtonText: { color: "#FFFFFF", fontSize: 20, fontWeight: "bold", letterSpacing: 0.5 },
+
+    // Estilos para o input de temperamento e loading
+    inputContainerWithStatus: {
+        position: 'relative',
+        justifyContent: 'center',
+    },
+    disabledInput: {
+        backgroundColor: '#F0F0F0', // Cor de fundo para indicar que está desabilitado
+        borderColor: '#E0E0E0',
+        color: '#A0A0A0',
+    },
+    statusIndicator: {
+        position: 'absolute',
+        right: 15,
+    },
 });
