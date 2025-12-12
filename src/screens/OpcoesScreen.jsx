@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     },
     // ⭐️ NOVO ESTILO: Botão Favoritos ⭐️
     favoritesButton: {
-        backgroundColor: 'rgba(228,105,255,0.93)', // Rosa Choque
+        backgroundColor: 'rgba(200, 162, 200, 0.93)', // Rosa Choque
     },
     buttonText: {
         fontSize: 20,
