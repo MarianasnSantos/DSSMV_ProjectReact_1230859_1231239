@@ -1,4 +1,4 @@
-// src/screens/AddAnimalScreen.jsx
+// src/screens/AddAnimalScreen.jsx - CORRIGIDO E COMPLETO
 
 import React, { useState, useEffect } from "react";
 import {
@@ -14,6 +14,7 @@ import {
     PermissionsAndroid,
     Platform,
 } from "react-native";
+// IMPORTANTE: Assumimos que estas bibliotecas estão instaladas
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
 import { Picker } from '@react-native-picker/picker';
@@ -49,10 +50,8 @@ function usePetStoreState() {
 const DOG_API_URL = "https://api.thedogapi.com/v1";
 
 // ⭐️ Componente Principal ⭐️
-// Adicionamos 'route' para ler os parâmetros de navegação (animalToEdit)
 export default function AddAnimalScreen({ navigation, route }) {
 
-    // ⭐️ LEITURA DE PARÂMETROS DE EDIÇÃO ⭐️
     const { animalToEdit } = route.params || {};
     const isEditMode = !!animalToEdit;
     const animalId = animalToEdit?.id;
@@ -60,7 +59,6 @@ export default function AddAnimalScreen({ navigation, route }) {
     // --- Inicialização de Estados (usa dados de edição, se existirem) ---
     const [name, setName] = useState(animalToEdit?.name || "");
     const [breed, setBreed] = useState(animalToEdit?.breed || "Sem Raça");
-    // Garantir que a idade é string, se vier da edição como número
     const [age, setAge] = useState(animalToEdit?.age ? String(animalToEdit.age) : "");
     const [temperament, setTemperament] = useState(animalToEdit?.temperament || "");
     const [contactNumber, setContactNumber] = useState(animalToEdit?.contactNumber || "");
@@ -75,13 +73,12 @@ export default function AddAnimalScreen({ navigation, route }) {
     const { breeds } = usePetStoreState();
     const userId = user?._id || user?.id;
 
-    // ⭐️ EFEITO: Configurar Título da Página ⭐️
+    // ⭐️ EFEITO: Configurar Título e Carregar Raças ⭐️
     useEffect(() => {
         navigation.setOptions({
             title: isEditMode ? 'Editar Animal' : 'Adicionar Animal',
         });
 
-        // Carrega as raças se necessário
         if (breeds.length <= 1) {
             PetActions.loadAnimals();
         }
@@ -110,25 +107,103 @@ export default function AddAnimalScreen({ navigation, route }) {
         }
     };
 
-    // Handler para a mudança de Raça
     const handleBreedChange = (itemValue) => {
         setBreed(itemValue);
-
         if (itemValue === "Sem Raça") {
             setTemperament("");
             return;
         }
-
         fetchTemperamentForBreed(itemValue);
     };
 
 
-    // --- Permissões, Fotos, Localização (Inalterado) ---
-    const requestLocationPermission = async () => { /* ... */ };
-    const requestCameraPermission = async () => { /* ... */ };
-    const tirarFoto = async () => { /* ... */ };
-    const abrirGaleria = async () => { /* ... */ };
-    const obterLocalizacao = async () => { /* ... */ };
+    // -------------------------------------------------------------
+    // ⭐️ FUNÇÕES DE PERMISSÃO E LOCALIZAÇÃO (CORRIGIDAS) ⭐️
+    // -------------------------------------------------------------
+
+    const requestLocationPermission = async () => {
+        if (Platform.OS === 'android') {
+            try {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                    {
+                        title: "Permissão de Localização",
+                        message: "Precisamos de acessar sua localização para registrar o animal.",
+                        buttonNeutral: "Perguntar Depois",
+                        buttonNegative: "Cancelar",
+                        buttonPositive: "OK"
+                    }
+                );
+                return granted === PermissionsAndroid.RESULTS.GRANTED;
+            } catch (err) {
+                console.warn(err);
+                return false;
+            }
+        }
+        // iOS requer permissão no Info.plist, mas a chamada nativa é simplificada
+        return true;
+    };
+
+    const requestCameraPermission = async () => {
+        if (Platform.OS === 'android') {
+            const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
+            return granted === PermissionsAndroid.RESULTS.GRANTED;
+        }
+        return true;
+    };
+
+    const tirarFoto = async () => {
+        const hasPermission = await requestCameraPermission();
+        if (!hasPermission) {
+            Alert.alert("Permissão negada", "Necessário permissão para usar a câmera.");
+            return;
+        }
+        launchCamera({ mediaType: 'photo', quality: 0.1, includeBase64: true }, (response) => {
+            if (response.didCancel) return;
+            if (response.errorMessage) return Alert.alert("Erro da Câmera", response.errorMessage);
+            if (response.assets && response.assets.length > 0) {
+                setPhoto(`data:image/jpeg;base64,${response.assets[0].base64}`);
+            }
+        });
+    };
+
+    const abrirGaleria = async () => {
+        launchImageLibrary({ mediaType: 'photo', quality: 0.1, includeBase64: true }, (response) => {
+            if (response.didCancel) return;
+            if (response.errorMessage) return Alert.alert("Erro da Galeria", response.errorMessage);
+            if (response.assets && response.assets.length > 0) {
+                setPhoto(`data:image/jpeg;base64,${response.assets[0].base64}`);
+            }
+        });
+    };
+
+    const obterLocalizacao = async () => {
+        setLoadingLocation(true);
+        const hasPermission = await requestLocationPermission();
+
+        if (!hasPermission) {
+            Alert.alert("Permissão negada", "Não podemos obter a localização sem permissão.");
+            setLoadingLocation(false);
+            return;
+        }
+
+        Geolocation.getCurrentPosition(
+            (position) => {
+                const coords = `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+                setLocation(coords);
+                setLoadingLocation(false);
+            },
+            (error) => {
+                console.error("Erro Geolocation:", error);
+                Alert.alert("Erro de Localização", `Não foi possível obter a localização: ${error.message}. Tente novamente.`);
+                setLoadingLocation(false);
+            },
+            // Opções
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        );
+    };
+
+    // -------------------------------------------------------------
 
 
     // --- Submissão (Lógica de Edição/Criação) ---
@@ -148,9 +223,7 @@ export default function AddAnimalScreen({ navigation, route }) {
         const finalBreed = breed === "Sem Raça" ? "" : breed;
 
         const animalData = {
-            // ID é necessário apenas em MODO DE EDIÇÃO
             ...(isEditMode && animalId && { id: animalId }),
-
             name,
             breed: finalBreed,
             age: Number(age),
@@ -159,13 +232,11 @@ export default function AddAnimalScreen({ navigation, route }) {
             photoUrl: photo,
             location,
 
-            // Campos de Publicação (Apenas em MODO DE CRIAÇÃO)
             ...(!isEditMode && {
                 addedBy: user?.username || user?.name || "Utilizador",
                 addedById: userId,
                 createdAt: new Date().toISOString(),
             }),
-            // Campo de Atualização (Apenas em MODO DE EDIÇÃO)
             ...(isEditMode && { updatedAt: new Date().toISOString() })
         };
 
@@ -174,11 +245,9 @@ export default function AddAnimalScreen({ navigation, route }) {
             let message;
 
             if (isEditMode) {
-                // ⭐️ MODO EDIÇÃO ⭐️
                 success = await PetActions.updateAnimal(animalData);
                 message = "Animal atualizado com sucesso!";
             } else {
-                // ⭐️ MODO CRIAÇÃO ⭐️
                 success = await PetActions.addAnimal(animalData);
                 message = "Animal adicionado com sucesso e visível no Feed!";
             }
@@ -199,7 +268,6 @@ export default function AddAnimalScreen({ navigation, route }) {
         }
     };
 
-    // Determina se o campo de Temperamento é editável
     const isTemperamentManualInput = breed === "Sem Raça" || !temperament;
     const isTemperamentEditable = isTemperamentManualInput;
 
@@ -277,7 +345,6 @@ export default function AddAnimalScreen({ navigation, route }) {
                 {isSaving ? (
                     <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                    // ⭐️ TEXTO DO BOTÃO ALTERADO ⭐️
                     <Text style={styles.saveButtonText}>{isEditMode ? 'Guardar Alterações' : 'Salvar Animal'}</Text>
                 )}
             </TouchableOpacity>
