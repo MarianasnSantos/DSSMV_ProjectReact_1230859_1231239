@@ -1,4 +1,4 @@
-// src/screens/AddAnimalScreen.jsx - CORRIGIDO E COMPLETO
+// src/screens/AddAnimalScreen.jsx
 
 import React, { useState, useEffect } from "react";
 import {
@@ -13,11 +13,11 @@ import {
     ActivityIndicator,
     PermissionsAndroid,
     Platform,
+    Modal, // ⭐️ Usado para o autocomplete ⭐️
+    FlatList, // Usado para renderizar a lista de raças dentro do Modal
 } from "react-native";
-// IMPORTANTE: Assumimos que estas bibliotecas estão instaladas
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import Geolocation from 'react-native-geolocation-service';
-import { Picker } from '@react-native-picker/picker';
 
 // Importações FLUX necessárias
 import AuthStore from "../stores/AuthStore";
@@ -25,7 +25,7 @@ import PetStore from "../stores/PetStore";
 import { PetActions } from "../actions/PetActions";
 
 
-// --- Hook para observar o AuthStore (para obter o ID do utilizador) ---
+// --- Hooks ---
 function useAuthStoreState() {
     const [state, setState] = useState(AuthStore.getState());
     useEffect(() => {
@@ -36,7 +36,6 @@ function useAuthStoreState() {
     return state;
 }
 
-// --- Hook para observar o PetStore (para obter a lista de raças) ---
 function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
@@ -49,6 +48,54 @@ function usePetStoreState() {
 
 const DOG_API_URL = "https://api.thedogapi.com/v1";
 
+
+// --- Componente Auxiliar para Seleção de Raças (Modal) ---
+const BreedSelectModal = ({ isVisible, breeds, onSelect, onClose, searchQuery, onSearchChange }) => {
+
+    return (
+        <Modal
+            animationType="slide"
+            transparent={false}
+            visible={isVisible}
+            onRequestClose={onClose}
+        >
+            <View style={modalStyles.container}>
+                <View style={modalStyles.header}>
+                    <Text style={modalStyles.title}>Pesquisar Raça</Text>
+                    <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
+                        <Text style={modalStyles.closeButtonText}>Fechar</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Campo de Pesquisa dentro do Modal */}
+                <TextInput
+                    style={modalStyles.input}
+                    placeholder="Comece a digitar o nome da raça..."
+                    placeholderTextColor="#A0A0A0"
+                    value={searchQuery}
+                    onChangeText={onSearchChange}
+                />
+
+                {/* FLATLIST ISOLADA (Evita o warning de ScrollView aninhada) */}
+                <FlatList
+                    data={breeds}
+                    keyExtractor={(item) => item}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={modalStyles.item}
+                            onPress={() => onSelect(item)}
+                        >
+                            <Text>{item}</Text>
+                        </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={<Text style={modalStyles.emptyText}>Nenhuma raça encontrada.</Text>}
+                />
+            </View>
+        </Modal>
+    );
+};
+
+
 // ⭐️ Componente Principal ⭐️
 export default function AddAnimalScreen({ navigation, route }) {
 
@@ -56,7 +103,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     const isEditMode = !!animalToEdit;
     const animalId = animalToEdit?.id;
 
-    // --- Inicialização de Estados (usa dados de edição, se existirem) ---
+    // --- Inicialização de Estados ---
     const [name, setName] = useState(animalToEdit?.name || "");
     const [breed, setBreed] = useState(animalToEdit?.breed || "Sem Raça");
     const [age, setAge] = useState(animalToEdit?.age ? String(animalToEdit.age) : "");
@@ -64,6 +111,9 @@ export default function AddAnimalScreen({ navigation, route }) {
     const [contactNumber, setContactNumber] = useState(animalToEdit?.contactNumber || "");
     const [photo, setPhoto] = useState(animalToEdit?.photoUrl || null);
     const [location, setLocation] = useState(animalToEdit?.location || "");
+
+    const [breedSearchQuery, setBreedSearchQuery] = useState(animalToEdit?.breed || "");
+    const [isBreedModalVisible, setIsBreedModalVisible] = useState(false);
 
     const [loadingLocation, setLoadingLocation] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -85,7 +135,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     }, [isEditMode, navigation, breeds.length]);
 
 
-    // --- Lógica de Temperamento Automático (Inalterado) ---
+    // --- Lógica de Temperamento Automático ---
     const fetchTemperamentForBreed = async (selectedBreed) => {
         setIsFetchingTemperament(true);
         setTemperament("");
@@ -107,20 +157,44 @@ export default function AddAnimalScreen({ navigation, route }) {
         }
     };
 
-    const handleBreedChange = (itemValue) => {
-        setBreed(itemValue);
-        if (itemValue === "Sem Raça") {
+    // ⭐️ Handler de Seleção de Raça (usado pelo Modal) ⭐️
+    const handleBreedSelect = (selectedBreed) => {
+        setBreed(selectedBreed);
+        setBreedSearchQuery(selectedBreed);
+        setIsBreedModalVisible(false); // Fecha o Modal
+
+        if (selectedBreed === "Sem Raça") {
             setTemperament("");
             return;
         }
-        fetchTemperamentForBreed(itemValue);
+        fetchTemperamentForBreed(selectedBreed);
+    };
+
+    // Handler de Mudança no TextInput de Pesquisa (dentro do Modal)
+    const handleBreedSearchChange = (text) => {
+        setBreedSearchQuery(text);
+        // Não atualizamos 'breed' aqui, só quando o utilizador selecionar.
     };
 
 
-    // -------------------------------------------------------------
-    // ⭐️ FUNÇÕES DE PERMISSÃO E LOCALIZAÇÃO (CORRIGIDAS) ⭐️
-    // -------------------------------------------------------------
+    // ⭐️ Lógica de Filtro para o Modal ⭐️
+    const getFilteredBreeds = () => {
+        const breedList = ["Sem Raça", ...breeds.filter(b => b !== 'Todos')];
 
+        const query = breedSearchQuery.trim().toLowerCase();
+        if (query === "") {
+            return breedList;
+        }
+
+        return breedList.filter(b => b.toLowerCase().includes(query));
+    };
+
+    const filteredBreeds = getFilteredBreeds();
+
+
+    // -------------------------------------------------------------
+    // ⭐️ FUNÇÕES DE PERMISSÃO E LOCALIZAÇÃO (COMPLETAS) ⭐️
+    // -------------------------------------------------------------
     const requestLocationPermission = async () => {
         if (Platform.OS === 'android') {
             try {
@@ -140,7 +214,6 @@ export default function AddAnimalScreen({ navigation, route }) {
                 return false;
             }
         }
-        // iOS requer permissão no Info.plist, mas a chamada nativa é simplificada
         return true;
     };
 
@@ -198,11 +271,9 @@ export default function AddAnimalScreen({ navigation, route }) {
                 Alert.alert("Erro de Localização", `Não foi possível obter a localização: ${error.message}. Tente novamente.`);
                 setLoadingLocation(false);
             },
-            // Opções
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
         );
     };
-
     // -------------------------------------------------------------
 
 
@@ -280,20 +351,16 @@ export default function AddAnimalScreen({ navigation, route }) {
             <Text style={styles.label}>Nome do Animal</Text>
             <TextInput style={styles.input} placeholder="Ex: Boby" placeholderTextColor="#FFB6C1" value={name} onChangeText={setName} />
 
+            {/* ⭐️ SEÇÃO DE SELEÇÃO DE RAÇA COM MODAL ⭐️ */}
             <Text style={styles.label}>Raça</Text>
-            <View style={styles.pickerContainer}>
-                <Picker
-                    selectedValue={breed}
-                    style={styles.pickerInput}
-                    onValueChange={handleBreedChange}
-                >
-                    <Picker.Item key="SemRaça" label="Sem Raça" value="Sem Raça" />
-
-                    {breeds?.filter(b => b !== 'Todos').map((b, index) => (
-                        <Picker.Item key={index} label={b} value={b} />
-                    ))}
-                </Picker>
-            </View>
+            <TouchableOpacity
+                style={[styles.input, styles.pickerContainer]}
+                onPress={() => setIsBreedModalVisible(true)}
+            >
+                <Text style={styles.breedDisplayText}>{breed}</Text>
+                <Text style={styles.openModalText}>PESQUISAR</Text>
+            </TouchableOpacity>
+            {/* ⭐️ FIM DA SEÇÃO DE SELEÇÃO DE RAÇA COM MODAL ⭐️ */}
 
 
             <Text style={styles.label}>Idade (anos)</Text>
@@ -348,11 +415,75 @@ export default function AddAnimalScreen({ navigation, route }) {
                     <Text style={styles.saveButtonText}>{isEditMode ? 'Guardar Alterações' : 'Salvar Animal'}</Text>
                 )}
             </TouchableOpacity>
+
+            {/* ⭐️ MODAL DE SELEÇÃO DE RAÇAS ⭐️ */}
+            <BreedSelectModal
+                isVisible={isBreedModalVisible}
+                breeds={filteredBreeds}
+                onSelect={handleBreedSelect}
+                onClose={() => setIsBreedModalVisible(false)}
+                searchQuery={breedSearchQuery}
+                onSearchChange={handleBreedSearchChange}
+            />
         </ScrollView>
     );
 }
 
-// --- Estilos (Inalterado) ---
+// -----------------------------------------------------------------
+// ⭐️ ESTILOS DO MODAL ⭐️
+// -----------------------------------------------------------------
+const modalStyles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 20,
+        paddingTop: 50,
+        backgroundColor: '#FFF0F5',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#D81B60',
+    },
+    closeButton: {
+        padding: 8,
+    },
+    closeButtonText: {
+        fontSize: 18,
+        color: '#FF69B4',
+        fontWeight: 'bold',
+    },
+    input: {
+        backgroundColor: "#FFFFFF",
+        padding: 15,
+        borderRadius: 15,
+        fontSize: 16,
+        color: "#880E4F",
+        borderWidth: 1.5,
+        borderColor: "#FFB6C1",
+        marginBottom: 20,
+    },
+    item: {
+        padding: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+        backgroundColor: '#FFFFFF',
+    },
+    emptyText: {
+        textAlign: 'center',
+        padding: 20,
+        color: '#A0A0A0',
+    },
+});
+
+// -----------------------------------------------------------------
+// ⭐️ ESTILOS DO COMPONENTE PRINCIPAL (ADICIONAR) ⭐️
+// -----------------------------------------------------------------
 const styles = StyleSheet.create({
     container: { flexGrow: 1, padding: 25, backgroundColor: "#FFF0F5" },
     title: { fontSize: 30, fontWeight: "bold", color: "#D81B60", textAlign: "center", marginBottom: 10, marginTop: 10 },
@@ -371,21 +502,24 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 },
     },
+    // ⭐️ ESTILOS DO NOVO SELETOR DE RAÇAS ⭐️
     pickerContainer: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 15,
-        borderWidth: 1.5,
-        borderColor: "#FFB6C1",
-        elevation: 3,
-        shadowColor: "#FF69B4",
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-        shadowOffset: { width: 0, height: 2 },
-        overflow: 'hidden',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 15, // Ajusta o padding para ficar parecido com o input
     },
-    pickerInput: {
-        color: "#880E4F",
+    breedDisplayText: {
+        fontSize: 16,
+        color: '#880E4F',
     },
+    openModalText: {
+        fontSize: 14,
+        color: '#D81B60',
+        fontWeight: 'bold',
+    },
+    // ⭐️ FIM DOS ESTILOS DO NOVO SELETOR DE RAÇAS ⭐️
+
     locationContainer: { gap: 10 },
     locationButton: { backgroundColor: "#FF69B4", padding: 12, borderRadius: 15, alignItems: "center", elevation: 2 },
     locationButtonText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
