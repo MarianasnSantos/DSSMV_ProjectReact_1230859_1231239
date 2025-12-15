@@ -1,6 +1,6 @@
 // src/screens/FavoritesScreen.jsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -19,8 +19,8 @@ import { PetActions } from "../actions/PetActions";
 // Importar funções de tradução
 import { translateTemperament, translateLifeSpan } from "../utils/translations";
 
-// Importar a imagem de favorito
-const FAVORITE_ICON = require('../assets/favoritar.jpg');
+// Ícone preenchido
+const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 
 
 // --- Funções Auxiliares FLUX ---
@@ -43,7 +43,7 @@ const getAuthData = () => {
     };
 };
 
-// ⭐️ NOVO/CORRIGIDO: HOOK REATIVO PARA O AUTHSTORE ⭐️
+// HOOK REATIVO PARA O AUTHSTORE
 function useAuthStoreState() {
     const [state, setState] = useState(getAuthData());
     useEffect(() => {
@@ -56,12 +56,9 @@ function useAuthStoreState() {
 
 
 export default function FavoritesScreen({ navigation }) {
-    const { animals = [], loading: petLoading = false, error: petError = null } = usePetStoreState() || {};
-
-    // ⭐️ CORREÇÃO: Usar o hook reativo em vez da função estática ⭐️
+    const { animals = [], loading: petLoading = false } = usePetStoreState() || {};
     const { favorites, isLoggedIn } = useAuthStoreState();
 
-    // ⭐️ NOVO ESTADO: Para carregar dados das raças da Dog API ⭐️
     const [favoriteBreeds, setFavoriteBreeds] = useState([]);
     const [breedsLoading, setBreedsLoading] = useState(false);
 
@@ -72,21 +69,16 @@ export default function FavoritesScreen({ navigation }) {
         }
     }, [animals.length]);
 
-    // ⭐️ EFEITO: CARREGAR DADOS DAS RAÇAS FAVORITAS ⭐️
-    // Este useEffect é CRÍTICO. Como 'favorites' agora é reativo, esta função
-    // será re-executada sempre que um favorito for adicionado ou removido,
-    // garantindo que favoriteBreeds e, consequentemente, allFavoriteItems
-    // são atualizados.
+    // EFEITO: CARREGAR DADOS DAS RAÇAS FAVORITAS
     useEffect(() => {
         if (!favorites.length || !isLoggedIn) {
-            setFavoriteBreeds([]); // Limpa a lista se não houver favoritos
+            setFavoriteBreeds([]);
             return;
         }
 
-        // 1. Separar favoritos em Animais (IDs longos) e Raças (IDs numéricos)
         const favoriteBreedIds = favorites
-            .filter(id => id && !isNaN(Number(id))) // Filtra IDs que são puramente numéricos
-            .map(Number); // Converte para número
+            .filter(id => id && !isNaN(Number(id)))
+            .map(Number);
 
         if (favoriteBreedIds.length === 0) {
             setFavoriteBreeds([]);
@@ -107,7 +99,7 @@ export default function FavoritesScreen({ navigation }) {
                         ...breed,
                         id: breed.id.toString(),
                         name: breed.name,
-                        imageUrl: breed.image?.url || "https://placehold.co/300x200?text=Raça",
+                        imageUrl: breed.image?.url || "https://placehold.co/300x300?text=Raça",
                         translatedTemperament: translateTemperament(breed.temperament),
                         translatedLifeSpan: translateLifeSpan(breed.life_span),
                     }));
@@ -121,40 +113,44 @@ export default function FavoritesScreen({ navigation }) {
         }
 
         loadFavoriteBreeds();
-    }, [favorites, isLoggedIn]); // Re-executa se a lista de favoritos mudar
+    }, [favorites, isLoggedIn]);
 
     // --- LÓGICA DE FILTRAGEM E COMBINAÇÃO ---
 
-    // 1. Filtrar animais (IDs longos)
     const favoriteAnimalIds = favorites.filter(id => id && isNaN(Number(id)));
     const actualFavoriteAnimals = animals.filter(animal =>
         favoriteAnimalIds.includes(animal.id)
     );
-
-    // 2. Combinar Animais (RestDB) + Raças (Dog API)
     const allFavoriteItems = [...actualFavoriteAnimals, ...favoriteBreeds];
 
 
-    // --- Renderização do Card (Lógica adaptada para Raças ou Animais) ---
+    // --- Renderização do Card ---
     const renderAnimalCard = ({ item }) => {
         const photo = item.image?.url || item.photoUrl || "https://placehold.co/300x200";
         const displayBreed = item.breed || item.name;
 
         const translatedTemperament = item.isBreed ? item.translatedTemperament : translateTemperament(item.temperament);
-        const translatedLifeSpan = item.isBreed ? item.translatedLifeSpan : translateLifeSpan(item.life_span);
+        const translatedLifeSpan = item.isBreed ? item.translatedLifeSpan : (item.life_span ? translateLifeSpan(item.life_span) : null);
         const displayName = item.name;
         const displaySubName = item.isBreed ? 'Raça Pura (Comunidade)' : displayBreed;
 
         const renderRemoveButton = () => (
-            <TouchableOpacity
-                style={styles.favoriteButton}
-                onPress={() => PetActions.toggleFavorite(item.id)}
-            >
-                <Image
-                    source={FAVORITE_ICON}
-                    style={[styles.customIcon, { tintColor: '#FF69B4' }]}
-                />
-            </TouchableOpacity>
+            // Ícone de remoção: sempre preenchido e com mensagem "Favorito"
+            <View style={styles.favoriteControlContainer}>
+                <TouchableOpacity
+                    style={styles.favoriteButton}
+                    onPress={() => PetActions.toggleFavorite(item.id)}
+                >
+                    <Image
+                        source={STAR_FILLED}
+                        // ⭐️ CORREÇÃO: Aplica apenas o estilo base. Nenhuma borda externa indesejada. ⭐️
+                        style={styles.customIcon}
+                    />
+                </TouchableOpacity>
+                <Text style={styles.favoritePermanentText}>
+                    Favorito
+                </Text>
+            </View>
         );
 
         return (
@@ -165,6 +161,11 @@ export default function FavoritesScreen({ navigation }) {
                         <Text style={styles.name}>{displayName}</Text>
                         {renderRemoveButton()}
                     </View>
+
+                    {/* Instrução de remoção */}
+                    <Text style={styles.removeInstructionText}>
+                        Para remover, toque na estrela "Favorito"
+                    </Text>
 
                     <Text style={styles.breedText}>{displaySubName}</Text>
 
@@ -190,8 +191,6 @@ export default function FavoritesScreen({ navigation }) {
                             </View>
                         )}
                     </View>
-
-                    <Text style={styles.removeText}>Clique no coração para remover</Text>
                 </View>
             </View>
         );
@@ -232,7 +231,7 @@ export default function FavoritesScreen({ navigation }) {
     );
 }
 
-// --- ESTILOS (Inalterados) ---
+// --- ESTILOS ---
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFF0F5" },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -240,6 +239,7 @@ const styles = StyleSheet.create({
     errorText: { color: '#D81B60', fontSize: 18, textAlign: 'center' },
     noFavoritesText: { color: '#D81B60', fontSize: 18, textAlign: 'center', fontWeight: 'bold' },
 
+    // ⭐️ ESTILO DO CARTÃO COM BORDA ROSA ⭐️
     card: {
         margin: 15,
         backgroundColor: "#FFE4E1",
@@ -250,27 +250,53 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowOffset: { width: 0, height: 2 },
         paddingBottom: 10,
+        borderWidth: 2,
+        borderColor: '#FF69B4',
     },
     image: { width: "100%", height: 250, backgroundColor: "#FFC0CB" },
     info: { padding: 15 },
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
+
+    // ESTILOS DE FAVORITO
+    favoriteControlContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingRight: 5,
+    },
+    favoritePermanentText: {
+        color: '#FF69B4',
+        textAlign: 'center',
+        fontWeight: 'bold',
+        fontSize: 12,
+        marginTop: 2,
+    },
     favoriteButton: { padding: 8 },
 
     customIcon: {
         width: 30,
         height: 30,
         resizeMode: 'contain',
+        // As propriedades de borda foram removidas daqui para evitar o quadrado indesejado.
     },
+
+    name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
+
     separator: { height: 1, backgroundColor: '#FFB6C1', marginVertical: 10 },
 
     breedText: { fontSize: 18, color: '#FF69B4', marginBottom: 8, marginTop: -5, fontWeight: '500' },
+
+    removeInstructionText: {
+        fontSize: 12,
+        color: '#D81B60',
+        textAlign: 'left',
+        marginTop: 0,
+        marginBottom: 10,
+        fontWeight: '500'
+    },
 
     detailsContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 10 },
     detailItem: { width: '48%', marginBottom: 10 },
     detailItemFull: { width: '100%', marginBottom: 10 },
     detailLabel: { fontSize: 14, fontWeight: 'bold', color: '#FF69B4' },
     detailValue: { fontSize: 16, color: '#880E4F', marginTop: 2 },
-
-    removeText: { fontSize: 12, color: '#FF69B4', textAlign: 'right', marginTop: 5 },
 });

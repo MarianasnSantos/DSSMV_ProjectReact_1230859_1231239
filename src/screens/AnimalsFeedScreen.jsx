@@ -6,17 +6,17 @@ import {
     TouchableOpacity, TextInput, Alert,
     KeyboardAvoidingView, Platform,
     Modal,
-    SafeAreaView // Adicionado para o Modal
+    SafeAreaView
 } from "react-native";
-// import { Picker } from '@react-native-picker/picker'; // Já não é necessário
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
-
-// ⭐️ Funções externas necessárias ⭐️
 import { translateTemperament } from "../utils/translations";
 
-const FAVORITE_ICON = require('../assets/favoritar.jpg');
+// Carregamos os dois ficheiros para a estrela
+const STAR_OUTLINE = require('../assets/favoritar.jpg');
+const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
+
 
 // --- Hooks/Auxiliares (Inalterados) ---
 function usePetStoreState() {
@@ -61,14 +61,12 @@ const formatDate = (isoString) => {
 };
 
 // ----------------------------------------------------------------------
-// ⭐️ COMPONENTE MODAL DE PESQUISA DE RAÇA ⭐️
+// COMPONENTE MODAL DE PESQUISA DE RAÇA (Inalterado)
 // ----------------------------------------------------------------------
-// Este componente usa React.memo para otimizar
 const BreedSearchModal = React.memo(({ isVisible, onClose, onSelect, allBreeds, selectedBreedName, modalStyles }) => {
     const [searchText, setSearchText] = useState('');
 
     const filteredBreeds = useMemo(() => {
-        // Incluir "Todos" e "Sem Raça" no topo da lista
         const breedList = ['Todos', 'Sem Raça', ...allBreeds.filter(b => b !== 'Todos')];
 
         if (!searchText) {
@@ -77,9 +75,7 @@ const BreedSearchModal = React.memo(({ isVisible, onClose, onSelect, allBreeds, 
 
         const lowerSearch = searchText.toLowerCase();
 
-        return breedList.filter(breed =>
-            breed.toLowerCase().includes(lowerSearch)
-        );
+        return breedList.filter(breed => breed.toLowerCase().includes(lowerSearch));
     }, [searchText, allBreeds]);
 
     const handleSelect = (breed) => {
@@ -106,14 +102,12 @@ const BreedSearchModal = React.memo(({ isVisible, onClose, onSelect, allBreeds, 
         >
             <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
                 <View style={modalStyles.modalContainer}>
-
                     <View style={modalStyles.modalHeader}>
                         <Text style={modalStyles.modalTitle}>Pesquisar Raça</Text>
                         <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
                             <Text style={modalStyles.closeButtonText}>Fechar</Text>
                         </TouchableOpacity>
                     </View>
-
                     <TextInput
                         style={modalStyles.modalSearchInput}
                         placeholder="Digite o nome da raça (ex: Poodle)"
@@ -121,7 +115,6 @@ const BreedSearchModal = React.memo(({ isVisible, onClose, onSelect, allBreeds, 
                         onChangeText={setSearchText}
                         autoFocus={true}
                     />
-
                     <FlatList
                         data={filteredBreeds}
                         renderItem={renderBreedItem}
@@ -151,18 +144,33 @@ export default function AnimalsFeedScreen({ navigation }) {
     } = usePetStoreState() || {};
 
     const { favorites, isLoggedIn, userId } = getAuthData();
-    const [feedbackMessage, setFeedbackMessage] = useState({ id: null, text: '' });
-
-    // ⭐️ ESTADOS PARA O MODAL DE PESQUISA DE RAÇA ⭐️
     const [isBreedModalVisible, setIsBreedModalVisible] = useState(false);
+
+    // ⭐️ ESTADO OTIMISTA: Rastreia cliques de favorito pendentes ⭐️
+    const [optimisticChanges, setOptimisticChanges] = useState({});
 
 
     useEffect(() => {
         PetActions.loadAnimals();
     }, []);
 
+    // ⭐️ EFEITO PARA LIMPAR ESTADO OTIMISTA ⭐️
+    useEffect(() => {
+        setOptimisticChanges(prev => {
+            const next = { ...prev };
+            Object.keys(prev).forEach(id => {
+                // Se o novo estado do Store for igual ao estado otimista, limpamos o override local.
+                if (favorites.includes(id) === prev[id]) {
+                    delete next[id];
+                }
+            });
+            return next;
+        });
+    }, [favorites]);
+
+
     // -----------------------------------------------------------
-    // LÓGICA DE FILTROS E PESQUISA CORRIGIDA
+    // LÓGICA DE FILTROS (Temperamento Corrigido)
     // -----------------------------------------------------------
 
     const getFilteredAnimals = () => {
@@ -191,11 +199,10 @@ export default function AnimalsFeedScreen({ navigation }) {
             });
         }
 
-        // Filtro Temperamento ⭐️ CORRIGIDO: Pesquisa na versão traduzida ⭐️
+        // Filtro Temperamento (Pesquisa na versão traduzida)
         if (filters.temperament?.trim()) {
             const search = filters.temperament.toLowerCase().trim();
             filteredList = filteredList.filter(a =>
-                // Pesquisa o termo digitado dentro do temperamento traduzido
                 translateTemperament(a.temperament).toLowerCase().includes(search)
             );
         }
@@ -204,18 +211,31 @@ export default function AnimalsFeedScreen({ navigation }) {
 
     const filteredAnimals = getFilteredAnimals();
 
-    // ⭐️ HANDLER PARA SELEÇÃO DE RAÇA DO MODAL ⭐️
+    // HANDLER PARA SELEÇÃO DE RAÇA DO MODAL
     const handleSelectBreed = (breed) => {
         PetActions.setFilter('breed', breed);
         setIsBreedModalVisible(false);
     };
 
-    // --- FAVORITOS / BOTÕES DE AUTOR (Inalterados) ---
+    // --- FAVORITOS / BOTÕES DE AUTOR ---
     const handleToggleFavorite = (id) => {
+        const idString = id.toString();
+
+        // Determina o estado de favorito ATUAL (otimista ou real)
+        const isCurrentlyInStore = favorites.includes(idString);
+        const isOptimistic = optimisticChanges[idString];
+
+        const isFavBeforeClick = isOptimistic !== undefined ? isOptimistic : isCurrentlyInStore;
+        const newFavState = !isFavBeforeClick;
+
+        // Optimistic Update (Feedback visual imediato)
+        setOptimisticChanges(prev => ({
+            ...prev,
+            [idString]: newFavState,
+        }));
+
+        // Dispara a ação (assíncrona)
         PetActions.toggleFavorite(id);
-        const isFav = favorites.includes(id);
-        setFeedbackMessage({ id, text: isFav ? 'Removido!' : 'Guardado!' });
-        setTimeout(() => setFeedbackMessage({ id: null, text: '' }), 1500);
     };
 
     const handleEditAnimal = (animal) => {
@@ -265,8 +285,6 @@ export default function AnimalsFeedScreen({ navigation }) {
         >
             {/* Filtros */}
             <View style={styles.filterContainer}>
-
-                {/* ⭐️ 1. BOTÃO DE RAÇA (Abre o Modal de Pesquisa) ⭐️ */}
                 <TouchableOpacity
                     style={styles.breedInputButton}
                     onPress={() => setIsBreedModalVisible(true)}
@@ -283,7 +301,6 @@ export default function AnimalsFeedScreen({ navigation }) {
                     </Text>
                 </TouchableOpacity>
 
-                {/* 2. FILTRO IDADE (Inalterado) */}
                 <TextInput
                     style={styles.textInputStyle}
                     placeholder="Idade (Anos)"
@@ -292,9 +309,8 @@ export default function AnimalsFeedScreen({ navigation }) {
                     value={filters.minAge}
                     onChangeText={(text) => PetActions.setFilter('minAge', text)}
                 />
-
             </View>
-            {/* 3. FILTRO TEMPERAMENTO (MANTÉM O PROBLEMA DO TECLADO) */}
+
             <TextInput
                 style={styles.fullWidthSearchInput}
                 placeholder="Pesquisar Temperamento"
@@ -302,7 +318,6 @@ export default function AnimalsFeedScreen({ navigation }) {
                 value={filters.temperament}
                 onChangeText={(text) => PetActions.setFilter('temperament', text)}
                 multiline={false}
-                // Isto pode não resolver o problema do teclado com a atualização do Store
                 keyboardShouldPersistTaps='handled'
             />
 
@@ -312,7 +327,13 @@ export default function AnimalsFeedScreen({ navigation }) {
                 keyExtractor={(item) => item.id ? item.id.toString() : Math.random().toString()}
                 renderItem={({ item }) => {
                     const photo = item.photoUrl || item.image?.url || "https://placehold.co/300x200";
-                    const isFav = favorites.includes(item.id);
+                    const idString = item.id.toString();
+
+                    // CÁLCULO OTIMISTA DO ESTADO DO FAVORITO
+                    const isCurrentlyInStore = favorites.includes(idString);
+                    const optimisticState = optimisticChanges[idString];
+                    const isFav = optimisticState !== undefined ? optimisticState : isCurrentlyInStore;
+
 
                     const locationDisplay = item.location;
                     const translatedTemperament = translateTemperament(item.temperament);
@@ -324,17 +345,32 @@ export default function AnimalsFeedScreen({ navigation }) {
                             <View style={styles.info}>
                                 <View style={styles.headerContainer}>
                                     <Text style={styles.name}>{item.name}</Text>
+
                                     {isLoggedIn && (
-                                        <TouchableOpacity onPress={() => handleToggleFavorite(item.id)}>
-                                            <Image
-                                                source={FAVORITE_ICON}
-                                                style={[styles.customIcon, { tintColor: isFav ? '#FF69B4' : '#FFC0CB' }]}
-                                            />
-                                        </TouchableOpacity>
+                                        // ⭐️ Ícone de Favorito Permanente ⭐️
+                                        <View style={styles.favoriteControlContainer}>
+                                            <TouchableOpacity onPress={() => handleToggleFavorite(item.id)}>
+                                                <Image
+                                                    source={isFav ? STAR_FILLED : STAR_OUTLINE}
+                                                    style={[
+                                                        styles.customIcon,
+                                                        // 1. Pinta a estrela vazia de rosa claro
+                                                        !isFav && { tintColor: '#FFC0CB' },
+                                                        // 2. ⭐️ Adiciona borda rosa quando for favorito (estrela preenchida) ⭐️
+                                                        isFav && styles.favoriteIconBorder
+                                                    ]}
+                                                />
+                                            </TouchableOpacity>
+
+                                            {/* ⭐️ Mensagem "Favorito" se o item estiver nos favoritos ⭐️ */}
+                                            {isFav && (
+                                                <Text style={styles.favoritePermanentText}>
+                                                    Favorito
+                                                </Text>
+                                            )}
+                                        </View>
                                     )}
                                 </View>
-
-                                {feedbackMessage.id === item.id && <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>}
 
                                 <Text style={styles.breedText}>{item.breed || "Sem Raça"}</Text>
 
@@ -392,7 +428,6 @@ export default function AnimalsFeedScreen({ navigation }) {
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
 
-            {/* ⭐️ MODAL DE PESQUISA DE RAÇAS RENDERIZADO ⭐️ */}
             <BreedSearchModal
                 isVisible={isBreedModalVisible}
                 onClose={() => setIsBreedModalVisible(false)}
@@ -406,10 +441,9 @@ export default function AnimalsFeedScreen({ navigation }) {
 }
 
 // ----------------------------------------------------------------------
-// ESTILOS: ADICIONADO ESTILOS DO MODAL E DO NOVO BOTÃO DE RAÇA
+// ESTILOS
 // ----------------------------------------------------------------------
 
-// ESTILOS DO MODAL
 const modalStyles = StyleSheet.create({
     modalContainer: { flex: 1, padding: 20, paddingTop: 50, backgroundColor: '#FFF0F5' },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: '#FFC0CB' },
@@ -438,10 +472,30 @@ const styles = StyleSheet.create({
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
     breedText: { fontSize: 18, color: '#880E4F', marginBottom: 5 },
 
+    // ⭐️ ESTILOS DE FAVORITO ⭐️
+    favoriteControlContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingRight: 5,
+    },
+    favoritePermanentText: {
+        color: '#FF69B4',
+        textAlign: 'center',
+        fontWeight: 'bold',
+        fontSize: 12,
+        marginTop: 2,
+    },
+    customIcon: { width: 30, height: 30 },
+    // ⭐️ NOVO ESTILO: Borda para a estrela favorita ⭐️
+    favoriteIconBorder: {
+        borderWidth: 1.5,
+        borderColor: '#FF69B4',
+        borderRadius: 5,
+    },
+    // FIM ESTILOS DE FAVORITO
+
     // Estilos de Filtros e UI
     filterContainer: { flexDirection: 'row', padding: 10, gap: 10 },
-
-    // NOVO: Estilo para o botão que abre o Modal de Raça
     breedInputButton: {
         flex: 1,
         paddingVertical: 15,
@@ -454,13 +508,11 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     breedInputText: { fontSize: 16, color: '#333333' },
-    placeholderText: { color: '#A0A0A0' }, // Para o texto "Raça (Pesquisar)"
-
-    // Os restantes estilos de input
+    placeholderText: { color: '#A0A0A0' },
     textInputStyle: { flex: 1, backgroundColor: '#fff', padding: 10, borderRadius: 5, height: 50, borderWidth: 1, borderColor: '#FFB6C1', fontSize: 16, color: '#333333', },
     fullWidthSearchInput: { marginHorizontal: 10, marginBottom: 5, height: 50, backgroundColor: '#fff', borderRadius: 5, borderWidth: 1, borderColor: '#FFB6C1', padding: 10, fontSize: 16, color: '#333333', },
 
-    // Restantes estilos (Inalterados)
+    // Restantes estilos
     authorInfoContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -522,8 +574,6 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     },
     deleteButtonText: { color: '#fff', fontWeight: 'bold' },
-    feedbackText: { color: '#FF1493', textAlign: 'right', fontWeight: 'bold' },
-    customIcon: { width: 30, height: 30 },
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
 });
