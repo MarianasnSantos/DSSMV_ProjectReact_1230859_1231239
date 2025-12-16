@@ -2,18 +2,66 @@
 
 import EventEmitter from 'eventemitter3';
 import AppDispatcher from '../dispatchers/AppDispatcher';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Estado privado (a fonte de verdade para a autenticação)
+// Chave única para guardar o estado no AsyncStorage
+const AUTH_STORE_KEY = 'AuthStoreData';
+
+// Estado privado
 let _state = {
-    user: null, // Objeto User logado
+    user: null,
     isLoggedIn: false,
     loading: false,
     error: null,
-    favorites: [], // ⭐️ NOVO: Array para guardar IDs de animais favoritos
+    favorites: [],
 };
 
+// ------------------------------------------------------------------
+// ⭐️ FUNÇÕES DE PERSISTÊNCIA (DEFINIDAS FORA DA CLASSE) ⭐️
+// ------------------------------------------------------------------
+
+const saveState = async () => {
+    try {
+        const stateToPersist = {
+            user: _state.user,
+            isLoggedIn: _state.isLoggedIn,
+            favorites: _state.favorites,
+        };
+        const serializedState = JSON.stringify(stateToPersist);
+        await AsyncStorage.setItem(AUTH_STORE_KEY, serializedState);
+    } catch (e) {
+        console.warn("Falha ao guardar estado do AuthStore:", e);
+    }
+};
+
+const loadState = async () => {
+    try {
+        const serializedState = await AsyncStorage.getItem(AUTH_STORE_KEY);
+        if (serializedState === null) {
+            return;
+        }
+
+        const storedData = JSON.parse(serializedState);
+
+        // Aplica o estado carregado (login e favoritos)
+        _state = {
+            ..._state,
+            user: storedData.user || null,
+            favorites: storedData.favorites || [],
+            isLoggedIn: storedData.isLoggedIn || false,
+        };
+
+        // 'store' ainda não foi definido, mas emitChange irá funcionar após a definição da store
+        store.emitChange();
+
+    } catch (e) {
+        console.warn("Falha ao carregar estado do AuthStore:", e);
+    }
+};
+
+
 class AuthStore extends EventEmitter {
-    // ... (Métodos getState, emitChange, addChangeListener, removeChangeListener)
+
     getState() {
         return _state;
     }
@@ -29,18 +77,21 @@ class AuthStore extends EventEmitter {
     removeChangeListener(callback) {
         this.removeListener('change', callback);
     }
+
+    // ⭐️ MÉTODO initialize() APENAS CHAMA A FUNÇÃO GLOBAL loadState() ⭐️
+    initialize() {
+        loadState(); // CHAMA A FUNÇÃO loadState DEFINIDA ACIMA
+    }
 }
 
-const store = new AuthStore();
+const store = new AuthStore(); // A variável 'store' agora é definida
 
 // --- Registro no Dispatcher (Lógica de Negócio de Autenticação) ---
 AppDispatcher.register((action) => {
     switch (action.type) {
-        // --- SUCESSO DE LOGIN/REGISTO (Atualiza o estado e os Favoritos) ---
+        // ... (Resto da lógica de ações, inalterada)
         case 'USER_LOGIN_SUCCESS':
         case 'USER_REGISTER_SUCCESS':
-            // ⚠️ Assumimos que o objeto 'user' do RestDB.io tem uma propriedade 'favorites'
-            // (Se o campo não existir, ele será um array vazio [ ])
             const fetchedFavorites = action.payload.user.favorites || [];
 
             _state = {
@@ -48,37 +99,35 @@ AppDispatcher.register((action) => {
                 loading: false,
                 isLoggedIn: true,
                 user: action.payload.user,
-                favorites: fetchedFavorites, // ⭐️ Carrega os favoritos do usuário
+                favorites: fetchedFavorites,
                 error: null
             };
             store.emitChange();
+            saveState();
             break;
 
-        // --- AÇÃO FLUX DOS FAVORITOS (Vinda do PetActions) ---
         case 'FAVORITE_SUCCESS':
-            // Esta ação é disparada após o sucesso do PATCH/PUT no RestDB.io
             const animalId = action.payload.animalId;
             let newFavorites = [..._state.favorites];
 
             if (newFavorites.includes(animalId)) {
-                // Remove dos favoritos (Toggle OFF)
                 newFavorites = newFavorites.filter(id => id !== animalId);
             } else {
-                // Adiciona aos favoritos (Toggle ON)
                 newFavorites.push(animalId);
             }
 
             _state = {
                 ..._state,
-                favorites: newFavorites, // ⭐️ Atualiza o array no Store
+                favorites: newFavorites,
             };
             store.emitChange();
+            saveState();
             break;
 
-        // --- OUTRAS AÇÕES (LOGOUT/LOADING/FAIL) ---
         case 'USER_LOGOUT':
             _state = { ..._state, isLoggedIn: false, user: null, favorites: [], error: null };
             store.emitChange();
+            saveState();
             break;
 
         case 'USER_LOGIN_START':

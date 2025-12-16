@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-    SafeAreaView,
     Text,
     StyleSheet,
     StatusBar,
@@ -19,10 +18,8 @@ import MainNavigator from './src/navigation/MainNavigator';
 
 // ⭐️ IMPORTAÇÕES FLUX
 import AuthStore from './src/stores/AuthStore';
-import { UserActions } from './src/actions/UserActions';
 
 // --- Hook Customizado para integração com o AuthStore ---
-// (Removemos toda a tipagem TS)
 function useAuthStoreState() {
     const [state, setState] = useState(AuthStore.getState());
 
@@ -32,7 +29,8 @@ function useAuthStoreState() {
         };
         AuthStore.addChangeListener(handleChange);
         return () => {
-            AuthStore.removeListener(handleChange); // removeListener é o método correto
+            // Usa o método corrigido do AuthStore
+            AuthStore.removeChangeListener(handleChange);
         };
     }, []);
 
@@ -40,18 +38,37 @@ function useAuthStoreState() {
 }
 
 const App = () => {
-    // 1. Obtém o estado centralizado do Store (sem tipagem de retorno)
+
+    // Obtemos o estado completo
     const { isLoggedIn, loading, user } = useAuthStoreState();
+
+    // ⭐️ ESTADO PARA ESPERAR PELO ASYNCSTORAGE ⭐️
+    const [isStoreInitialized, setIsStoreInitialized] = useState(false);
+
+    useEffect(() => {
+        // 1. CHAMA O MÉTODO PARA CARREGAR O ESTADO PERSISTENTE
+        AuthStore.initialize();
+
+        // 2. Timeout para garantir que o processo assíncrono do loadState()
+        // termina antes de decidir o que renderizar.
+        const initializeTimeout = setTimeout(() => {
+            setIsStoreInitialized(true);
+        }, 800); // 800ms é um valor seguro para esperar pelo AsyncStorage
+
+        return () => clearTimeout(initializeTimeout);
+
+    }, []);
+
 
     const isDarkMode = useColorScheme() === 'dark';
 
-    // Se a aplicação estiver carregando a sessão ou processando o login
-    if (loading) {
+    // ⭐️ ECRÃ DE CARREGAMENTO INICIAL: Mostra se o Store ainda não carregou os dados ⭐️
+    if (loading || !isStoreInitialized) {
         return (
             <SafeAreaProvider>
                 <View style={styles.loaderContainer}>
                     <ActivityIndicator size="large" color="#f3b4b4" />
-                    <Text style={styles.loadingText}>A processar autenticação...</Text>
+                    <Text style={styles.loadingText}>A carregar sessão...</Text>
                 </View>
             </SafeAreaProvider>
         );
@@ -61,14 +78,13 @@ const App = () => {
         <SafeAreaProvider>
             <StatusBar barStyle={isDarkMode ? 'dark-content' : 'dark-content'} />
 
-            {/* ⭐️ Envolve a aplicação com o container de navegação */}
             <NavigationContainer>
-                {/* Renderização Condicional baseada no estado do FLUX */}
-                {isLoggedIn ? (
-                    // Se logado, mostra o conteúdo principal
+                {/* ⭐️ DECISÃO DE NAVEGAÇÃO: Baseada no estado persistente ⭐️ */}
+                {isLoggedIn && user ? (
+                    // Se estiver logado E tiver os dados do utilizador
                     <MainNavigator/>
                 ) : (
-                    // Se não logado, mostra o navegador de autenticação
+                    // Se não estiver logado (ou se os dados falharam), vai para o Login/Registo
                     <AuthNavigator />
                 )}
             </NavigationContainer>
