@@ -1,6 +1,6 @@
 // src/screens/FavoritesScreen.jsx
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     Text,
@@ -62,6 +62,9 @@ export default function FavoritesScreen({ navigation }) {
     const [favoriteBreeds, setFavoriteBreeds] = useState([]);
     const [breedsLoading, setBreedsLoading] = useState(false);
 
+    // NOVO ESTADO: Filtro Ativo
+    const [activeFilter, setActiveFilter] = useState('adoption'); // Valores: 'adoption' | 'community'
+
     // Carregar animais ao montar
     useEffect(() => {
         if (animals.length === 0) {
@@ -95,7 +98,7 @@ export default function FavoritesScreen({ navigation }) {
                 const filteredBreeds = allBreeds
                     .filter(breed => favoriteBreedIds.includes(breed.id))
                     .map(breed => ({
-                        isBreed: true,
+                        isBreed: true, // Flag para identificar itens da comunidade (raças)
                         ...breed,
                         id: breed.id.toString(),
                         name: breed.name,
@@ -121,10 +124,24 @@ export default function FavoritesScreen({ navigation }) {
     const actualFavoriteAnimals = animals.filter(animal =>
         favoriteAnimalIds.includes(animal.id)
     );
+
+    // Combina todos os favoritos
     const allFavoriteItems = [...actualFavoriteAnimals, ...favoriteBreeds];
 
+    // NOVO: Filtragem final baseada no filtro selecionado
+    const filteredFavoriteItems = useMemo(() => {
+        if (activeFilter === 'adoption') {
+            // Filtra animais de adoção (onde isBreed é false/undefined)
+            return allFavoriteItems.filter(item => !item.isBreed);
+        } else if (activeFilter === 'community') {
+            // Filtra raças da comunidade (onde isBreed é true)
+            return allFavoriteItems.filter(item => item.isBreed);
+        }
+        return allFavoriteItems; // Por segurança
+    }, [allFavoriteItems, activeFilter]);
 
-    // --- Renderização do Card ---
+
+    // --- Renderização do Card (Inalterada) ---
     const renderAnimalCard = ({ item }) => {
         const photo = item.image?.url || item.photoUrl || "https://placehold.co/300x200";
         const displayBreed = item.breed || item.name;
@@ -132,10 +149,9 @@ export default function FavoritesScreen({ navigation }) {
         const translatedTemperament = item.isBreed ? item.translatedTemperament : translateTemperament(item.temperament);
         const translatedLifeSpan = item.isBreed ? item.translatedLifeSpan : (item.life_span ? translateLifeSpan(item.life_span) : null);
         const displayName = item.name;
-        const displaySubName = item.isBreed ? 'Raça Pura (Comunidade)' : displayBreed;
+        const displaySubName = item.isBreed ? 'Raça Pura (Comunidade)' : (item.breed || 'Animal para Adoção');
 
         const renderRemoveButton = () => (
-            // Ícone de remoção: sempre preenchido e com mensagem "Favorito"
             <View style={styles.favoriteControlContainer}>
                 <TouchableOpacity
                     style={styles.favoriteButton}
@@ -143,7 +159,6 @@ export default function FavoritesScreen({ navigation }) {
                 >
                     <Image
                         source={STAR_FILLED}
-                        // ⭐️ CORREÇÃO: Aplica apenas o estilo base. Nenhuma borda externa indesejada. ⭐️
                         style={styles.customIcon}
                     />
                 </TouchableOpacity>
@@ -162,7 +177,6 @@ export default function FavoritesScreen({ navigation }) {
                         {renderRemoveButton()}
                     </View>
 
-                    {/* Instrução de remoção */}
                     <Text style={styles.removeInstructionText}>
                         Para remover, toque na estrela "Favorito"
                     </Text>
@@ -172,7 +186,7 @@ export default function FavoritesScreen({ navigation }) {
                     <View style={styles.separator} />
 
                     <View style={styles.detailsContainer}>
-                        {item.age && (
+                        {!item.isBreed && item.age && (
                             <View style={styles.detailItem}>
                                 <Text style={styles.detailLabel}>Idade:</Text>
                                 <Text style={styles.detailValue}>{item.age} anos</Text>
@@ -196,6 +210,41 @@ export default function FavoritesScreen({ navigation }) {
         );
     };
 
+    // ⭐️ Componente da Barra de Abas Inferior ⭐️
+    const TabBar = () => (
+        <View style={styles.tabBarContainer}>
+            <View style={styles.tabOptionsContainer}>
+                <TouchableOpacity
+                    style={[
+                        styles.tabButton,
+                        activeFilter === 'adoption' && styles.tabButtonActive
+                    ]}
+                    onPress={() => setActiveFilter('adoption')}
+                >
+                    <Text style={[
+                        styles.tabButtonText,
+                        activeFilter === 'adoption' && styles.tabButtonTextActive
+                    ]}>
+                        Favoritos para Adoção
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[
+                        styles.tabButton,
+                        activeFilter === 'community' && styles.tabButtonActive
+                    ]}
+                    onPress={() => setActiveFilter('community')}
+                >
+                    <Text style={[
+                        styles.tabButtonText,
+                        activeFilter === 'community' && styles.tabButtonTextActive
+                    ]}>
+                        Favoritos da Comunidade
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
 
     // --- Renderização Principal ---
 
@@ -220,13 +269,39 @@ export default function FavoritesScreen({ navigation }) {
     }
 
     return (
+        // ⭐️ Contentor Principal: Flex 1 para ocupar todo o ecrã ⭐️
         <View style={styles.container}>
-            <FlatList
-                data={allFavoriteItems}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderAnimalCard}
-                contentContainerStyle={{ paddingBottom: 20 }}
-            />
+
+            {/* Mensagem de topo */}
+            <View style={styles.topMessageContainer}>
+                <Text style={styles.topMessageText}>
+                    Esta na página dos favoritos, seleciona qual quer ver:
+                </Text>
+            </View>
+
+            {/* Mensagem se a lista filtrada estiver vazia */}
+            {filteredFavoriteItems.length === 0 ? (
+                <View style={styles.emptyFilterContainer}>
+                    <Text style={styles.emptyFilterText}>
+                        Não tem favoritos na categoria "{activeFilter === 'adoption' ? 'Adoção' : 'Comunidade'}"
+                    </Text>
+                    <Text style={styles.emptyFilterSubText}>
+                        Adicione alguns para que apareçam aqui!
+                    </Text>
+                </View>
+            ) : (
+                // ⭐️ Lista de Favoritos: Flex 1 para ocupar o espaço disponível ⭐️
+                <FlatList
+                    data={filteredFavoriteItems}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={renderAnimalCard}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                    style={{ flex: 1 }}
+                />
+            )}
+
+            {/* ⭐️ Barra de Abas Fixa no Fundo ⭐️ */}
+            <TabBar />
         </View>
     );
 }
@@ -239,7 +314,76 @@ const styles = StyleSheet.create({
     errorText: { color: '#D81B60', fontSize: 18, textAlign: 'center' },
     noFavoritesText: { color: '#D81B60', fontSize: 18, textAlign: 'center', fontWeight: 'bold' },
 
-    // ⭐️ ESTILO DO CARTÃO COM BORDA ROSA ⭐️
+    // ⭐️ NOVO: Estilos para a mensagem de topo ⭐️
+    topMessageContainer: {
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        backgroundColor: '#FFB6C1',
+        borderBottomWidth: 1,
+        borderBottomColor: '#FF69B4',
+    },
+    topMessageText: {
+        fontSize: 14,
+        color: '#D81B60',
+        textAlign: 'center',
+        fontWeight: 'bold',
+    },
+
+    // ⭐️ NOVOS ESTILOS: Barra de Abas Inferior (TabBar) ⭐️
+    tabBarContainer: {
+        backgroundColor: '#FFE4E1', // Fundo claro
+        borderTopWidth: 1,
+        borderTopColor: '#FF69B4',
+        paddingHorizontal: 5,
+        paddingVertical: 8,
+    },
+    tabOptionsContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        backgroundColor: '#FFE4E1',
+        borderRadius: 8,
+    },
+    tabButton: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 6,
+        alignItems: 'center',
+        marginHorizontal: 4,
+    },
+    tabButtonActive: {
+        backgroundColor: '#FF69B4', // Rosa mais forte
+    },
+    tabButtonText: {
+        color: '#D81B60', // Rosa mais escuro
+        fontWeight: 'bold',
+        fontSize: 12,
+        textAlign: 'center',
+    },
+    tabButtonTextActive: {
+        color: '#FFFFFF',
+    },
+
+    // Estilos de Filtro Vazio
+    emptyFilterContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    emptyFilterText: {
+        fontSize: 18,
+        color: '#D81B60',
+        textAlign: 'center',
+        fontWeight: 'bold',
+        marginBottom: 5,
+    },
+    emptyFilterSubText: {
+        fontSize: 16,
+        color: '#D81B60',
+        textAlign: 'center',
+    },
+
+    // Estilos de Cartão e Ícones
     card: {
         margin: 15,
         backgroundColor: "#FFE4E1",
@@ -256,8 +400,6 @@ const styles = StyleSheet.create({
     image: { width: "100%", height: 250, backgroundColor: "#FFC0CB" },
     info: { padding: 15 },
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-
-    // ESTILOS DE FAVORITO
     favoriteControlContainer: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -271,20 +413,14 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     favoriteButton: { padding: 8 },
-
     customIcon: {
         width: 30,
         height: 30,
         resizeMode: 'contain',
-        // As propriedades de borda foram removidas daqui para evitar o quadrado indesejado.
     },
-
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
-
     separator: { height: 1, backgroundColor: '#FFB6C1', marginVertical: 10 },
-
     breedText: { fontSize: 18, color: '#FF69B4', marginBottom: 8, marginTop: -5, fontWeight: '500' },
-
     removeInstructionText: {
         fontSize: 12,
         color: '#D81B60',
@@ -293,7 +429,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         fontWeight: '500'
     },
-
     detailsContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 10 },
     detailItem: { width: '48%', marginBottom: 10 },
     detailItemFull: { width: '100%', marginBottom: 10 },

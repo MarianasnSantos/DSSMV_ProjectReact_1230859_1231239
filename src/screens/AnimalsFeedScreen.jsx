@@ -154,7 +154,7 @@ export default function AnimalsFeedScreen({ navigation }) {
         PetActions.loadAnimals();
     }, []);
 
-    // ⭐️ EFEITO PARA LIMPAR ESTADO OTIMISTA ⭐️
+    // EFEITO PARA LIMPAR ESTADO OTIMISTA
     useEffect(() => {
         setOptimisticChanges(prev => {
             const next = { ...prev };
@@ -356,8 +356,7 @@ export default function AnimalsFeedScreen({ navigation }) {
                                                         styles.customIcon,
                                                         // 1. Pinta a estrela vazia de rosa claro
                                                         !isFav && { tintColor: '#FFC0CB' },
-                                                        // 2. ⭐️ Adiciona borda rosa quando for favorito (estrela preenchida) ⭐️
-                                                        isFav && styles.favoriteIconBorder
+                                                        // 2. ⭐️ REMOVIDO: favoriteIconBorder. Usamos apenas customIcon sem bordas por padrão. ⭐️
                                                     ]}
                                                 />
                                             </TouchableOpacity>
@@ -485,13 +484,17 @@ const styles = StyleSheet.create({
         fontSize: 12,
         marginTop: 2,
     },
-    customIcon: { width: 30, height: 30 },
-    // ⭐️ NOVO ESTILO: Borda para a estrela favorita ⭐️
-    favoriteIconBorder: {
-        borderWidth: 1.5,
-        borderColor: '#FF69B4',
-        borderRadius: 5,
+    customIcon: {
+        width: 30,
+        height: 30
+        // ❌ Borda removida daqui ❌
     },
+    // ❌ REMOVIDO: Não precisamos deste estilo separado ❌
+    // favoriteIconBorder: {
+    //     borderWidth: 1.5,
+    //     borderColor: '#FF69B4',
+    //     borderRadius: 5,
+    // },
     // FIM ESTILOS DE FAVORITO
 
     // Estilos de Filtros e UI
