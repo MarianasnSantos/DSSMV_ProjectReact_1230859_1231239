@@ -62,8 +62,8 @@ export default function FavoritesScreen({ navigation }) {
     const [favoriteBreeds, setFavoriteBreeds] = useState([]);
     const [breedsLoading, setBreedsLoading] = useState(false);
 
-    // NOVO ESTADO: Filtro Ativo
-    const [activeFilter, setActiveFilter] = useState('adoption'); // Valores: 'adoption' | 'community'
+    // ESTADO: Filtro Ativo
+    const [activeFilter, setActiveFilter] = useState('adoption');
 
     // Carregar animais ao montar
     useEffect(() => {
@@ -95,19 +95,42 @@ export default function FavoritesScreen({ navigation }) {
                 const response = await fetch("https://api.thedogapi.com/v1/breeds");
                 const allBreeds = await response.json();
 
-                const filteredBreeds = allBreeds
-                    .filter(breed => favoriteBreedIds.includes(breed.id))
-                    .map(breed => ({
-                        isBreed: true, // Flag para identificar itens da comunidade (raças)
-                        ...breed,
-                        id: breed.id.toString(),
-                        name: breed.name,
-                        imageUrl: breed.image?.url || "https://placehold.co/300x300?text=Raça",
-                        translatedTemperament: translateTemperament(breed.temperament),
-                        translatedLifeSpan: translateLifeSpan(breed.life_span),
-                    }));
+                // Usamos Promise.all para tratar todas as raças em paralelo
+                const filteredBreedsWithImages = await Promise.all(
+                    allBreeds
+                        .filter(breed => favoriteBreedIds.includes(breed.id))
+                        .map(async (breed) => {
+                            let imageUrl = breed.image?.url || null;
 
-                setFavoriteBreeds(filteredBreeds);
+                            // ⭐️ CORREÇÃO CHAVE: Busca robusta de URL de imagem ⭐️
+                            if (!imageUrl && breed.reference_image_id) {
+                                try {
+                                    const imgResponse = await fetch(`https://api.thedogapi.com/v1/images/${breed.reference_image_id}`);
+                                    const imgData = await imgResponse.json();
+                                    imageUrl = imgData.url;
+                                } catch {
+                                    // Fallback se a busca secundária falhar
+                                    imageUrl = "https://placehold.co/300x300?text=Sem+imagem";
+                                }
+                            }
+                            // ⭐️ FIM CORREÇÃO CHAVE ⭐️
+
+                            // Se ainda não tiver imagem, usa o placeholder final
+                            const finalImageUrl = imageUrl || "https://placehold.co/300x300?text=Sem+imagem";
+
+                            return {
+                                isBreed: true,
+                                ...breed,
+                                id: breed.id.toString(),
+                                name: breed.name,
+                                imageUrl: finalImageUrl,
+                                translatedTemperament: translateTemperament(breed.temperament),
+                                translatedLifeSpan: translateLifeSpan(breed.life_span),
+                            };
+                        })
+                );
+
+                setFavoriteBreeds(filteredBreedsWithImages);
             } catch (err) {
                 console.error("Erro ao buscar raças favoritas:", err);
             } finally {
@@ -125,25 +148,28 @@ export default function FavoritesScreen({ navigation }) {
         favoriteAnimalIds.includes(animal.id)
     );
 
-    // Combina todos os favoritos
     const allFavoriteItems = [...actualFavoriteAnimals, ...favoriteBreeds];
 
-    // NOVO: Filtragem final baseada no filtro selecionado
+    // Filtragem final baseada no filtro selecionado
     const filteredFavoriteItems = useMemo(() => {
         if (activeFilter === 'adoption') {
-            // Filtra animais de adoção (onde isBreed é false/undefined)
             return allFavoriteItems.filter(item => !item.isBreed);
         } else if (activeFilter === 'community') {
-            // Filtra raças da comunidade (onde isBreed é true)
             return allFavoriteItems.filter(item => item.isBreed);
         }
-        return allFavoriteItems; // Por segurança
+        return allFavoriteItems;
     }, [allFavoriteItems, activeFilter]);
 
 
-    // --- Renderização do Card (Inalterada) ---
+    // --- Renderização do Card ---
     const renderAnimalCard = ({ item }) => {
-        const photo = item.image?.url || item.photoUrl || "https://placehold.co/300x200";
+        const photoUrlSource = item.isBreed
+            ? item.imageUrl
+            : item.image?.url || item.photoUrl;
+
+        // O photo será sempre um URL, seja da API ou do placeholder
+        const photo = photoUrlSource || "https://placehold.co/300x200";
+
         const displayBreed = item.breed || item.name;
 
         const translatedTemperament = item.isBreed ? item.translatedTemperament : translateTemperament(item.temperament);
@@ -170,6 +196,7 @@ export default function FavoritesScreen({ navigation }) {
 
         return (
             <View style={styles.card}>
+                {/* ⭐️ Renderização da Imagem ⭐️ */}
                 <Image source={{ uri: photo }} style={styles.image} resizeMode="cover" />
                 <View style={styles.info}>
                     <View style={styles.headerContainer}>
@@ -210,7 +237,7 @@ export default function FavoritesScreen({ navigation }) {
         );
     };
 
-    // ⭐️ Componente da Barra de Abas Inferior ⭐️
+    // Componente da Barra de Abas Inferior (Inalterada)
     const TabBar = () => (
         <View style={styles.tabBarContainer}>
             <View style={styles.tabOptionsContainer}>
@@ -269,10 +296,8 @@ export default function FavoritesScreen({ navigation }) {
     }
 
     return (
-        // ⭐️ Contentor Principal: Flex 1 para ocupar todo o ecrã ⭐️
         <View style={styles.container}>
 
-            {/* Mensagem de topo */}
             <View style={styles.topMessageContainer}>
                 <Text style={styles.topMessageText}>
                     Esta na página dos favoritos, seleciona qual quer ver:
@@ -290,7 +315,6 @@ export default function FavoritesScreen({ navigation }) {
                     </Text>
                 </View>
             ) : (
-                // ⭐️ Lista de Favoritos: Flex 1 para ocupar o espaço disponível ⭐️
                 <FlatList
                     data={filteredFavoriteItems}
                     keyExtractor={(item) => item.id.toString()}
@@ -300,7 +324,6 @@ export default function FavoritesScreen({ navigation }) {
                 />
             )}
 
-            {/* ⭐️ Barra de Abas Fixa no Fundo ⭐️ */}
             <TabBar />
         </View>
     );
@@ -314,7 +337,6 @@ const styles = StyleSheet.create({
     errorText: { color: '#D81B60', fontSize: 18, textAlign: 'center' },
     noFavoritesText: { color: '#D81B60', fontSize: 18, textAlign: 'center', fontWeight: 'bold' },
 
-    // ⭐️ NOVO: Estilos para a mensagem de topo ⭐️
     topMessageContainer: {
         paddingVertical: 10,
         paddingHorizontal: 15,
@@ -329,9 +351,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 
-    // ⭐️ NOVOS ESTILOS: Barra de Abas Inferior (TabBar) ⭐️
     tabBarContainer: {
-        backgroundColor: '#FFE4E1', // Fundo claro
+        backgroundColor: '#FFE4E1',
         borderTopWidth: 1,
         borderTopColor: '#FF69B4',
         paddingHorizontal: 5,
@@ -351,10 +372,10 @@ const styles = StyleSheet.create({
         marginHorizontal: 4,
     },
     tabButtonActive: {
-        backgroundColor: '#FF69B4', // Rosa mais forte
+        backgroundColor: '#FF69B4',
     },
     tabButtonText: {
-        color: '#D81B60', // Rosa mais escuro
+        color: '#D81B60',
         fontWeight: 'bold',
         fontSize: 12,
         textAlign: 'center',
@@ -363,7 +384,6 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
     },
 
-    // Estilos de Filtro Vazio
     emptyFilterContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -383,7 +403,6 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
 
-    // Estilos de Cartão e Ícones
     card: {
         margin: 15,
         backgroundColor: "#FFE4E1",
@@ -397,6 +416,7 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#FF69B4',
     },
+    // O fundo rosa agora só aparece se a busca robusta e o placeholder falharem.
     image: { width: "100%", height: 250, backgroundColor: "#FFC0CB" },
     info: { padding: 15 },
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },

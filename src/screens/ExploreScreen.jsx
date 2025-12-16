@@ -1,6 +1,6 @@
 // src/screens/ExploreScreen.jsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
     View,
     Text,
@@ -16,7 +16,9 @@ import { translateTemperament } from "../utils/translations";
 import AuthStore from "../stores/AuthStore";
 import { PetActions } from "../actions/PetActions";
 
-const FAVORITE_ICON = require('../assets/favoritar.jpg');
+// Estrelas preenchida/vazia
+const STAR_OUTLINE = require('../assets/favoritar.jpg');
+const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 
 
 // --- Funções Auxiliares FLUX ---
@@ -41,10 +43,11 @@ function useAuthStoreState() {
 export default function ExploreScreen() {
     const [breeds, setBreeds] = useState([]);
     const [loading, setLoading] = useState(true);
-    // ⭐️ IGUAL AO ANIMALSFEEDSCREEN ⭐️
-    const [feedbackMessage, setFeedbackMessage] = useState({ id: null, text: '' });
 
     const { favorites, isLoggedIn } = useAuthStoreState();
+
+    // ESTADO OTIMISTA: Para Optimistic UI
+    const [optimisticChanges, setOptimisticChanges] = useState({});
 
     useEffect(() => {
         async function loadBreeds() {
@@ -70,6 +73,7 @@ export default function ExploreScreen() {
 
                         return {
                             ...breed,
+                            id: breed.id.toString(),
                             imageUrl: imageUrl || "https://placehold.co/300x200?text=Sem+imagem",
                             translatedTemperament: translatedTemperament
                         };
@@ -87,43 +91,71 @@ export default function ExploreScreen() {
         loadBreeds();
     }, []);
 
+    // EFEITO PARA LIMPAR ESTADO OTIMISTA quando o Store é atualizado
+    useEffect(() => {
+        setOptimisticChanges(prev => {
+            const next = { ...prev };
+            Object.keys(prev).forEach(id => {
+                if (favorites.includes(id) === prev[id]) {
+                    delete next[id];
+                }
+            });
+            return next;
+        });
+    }, [favorites]);
 
-    // ⭐️ FUNÇÃO DE TOGGLE COM A MENSAGEM CORRETA ⭐️
+
+    // FUNÇÃO DE TOGGLE OTIMISTA COM A ESTRELA PERMANENTE
     const renderFavoriteIcon = (item) => {
         if (!isLoggedIn) return null;
 
         const favoriteId = item.id.toString();
-        const isFavorite = favorites.includes(favoriteId);
-        const iconColor = isFavorite ? '#FF69B4' : '#FFC0CB';
+
+        // CÁLCULO OTIMISTA DO ESTADO DO FAVORITO
+        const isCurrentlyInStore = favorites.includes(favoriteId);
+        const optimisticState = optimisticChanges[favoriteId];
+        const isFav = optimisticState !== undefined ? optimisticState : isCurrentlyInStore;
+
 
         const handleToggleFavorite = () => {
-            // Verifica o estado ANTES da ação para escolher a mensagem
-            const isCurrentlyFavorite = favorites.includes(favoriteId);
 
+            const isFavBeforeClick = optimisticState !== undefined ? optimisticState : isCurrentlyInStore;
+            const newFavState = !isFavBeforeClick;
+
+            // 1. Optimistic Update (Feedback visual imediato)
+            setOptimisticChanges(prev => ({
+                ...prev,
+                [favoriteId]: newFavState,
+            }));
+
+            // 2. Dispara a ação
             PetActions.toggleFavorite(favoriteId);
-
-            // ⭐️ MENSAGEM IDÊNTICA AO ANIMALSFEEDSCREEN ⭐️
-            const message = isCurrentlyFavorite ? 'Removido dos Favoritos!' : 'Adicionado aos Favoritos!';
-            setFeedbackMessage({ id: favoriteId, text: message });
-
-            // Limpar a mensagem após 2 segundos (ajustado para igual ao AnimalsFeedScreen)
-            setTimeout(() => setFeedbackMessage({ id: null, text: '' }), 2000);
         };
 
 
         return (
-            <TouchableOpacity
-                style={styles.favoriteButton}
-                onPress={handleToggleFavorite}
-            >
-                <Image
-                    source={FAVORITE_ICON}
-                    style={[
-                        styles.customIcon,
-                        { tintColor: iconColor }
-                    ]}
-                />
-            </TouchableOpacity>
+            <View style={styles.favoriteControlContainer}>
+                <TouchableOpacity
+                    onPress={handleToggleFavorite}
+                >
+                    <Image
+                        source={isFav ? STAR_FILLED : STAR_OUTLINE}
+                        style={[
+                            styles.customIcon,
+                            // Pinta a estrela vazia de rosa claro
+                            !isFav && { tintColor: '#FFC0CB' },
+                            // ❌ CORRIGIDO: favoriteIconBorder removido daqui ❌
+                        ]}
+                    />
+                </TouchableOpacity>
+
+                {/* Mensagem "Favorito" se o item estiver nos favoritos */}
+                {isFav && (
+                    <Text style={styles.favoritePermanentText}>
+                        Favorito
+                    </Text>
+                )}
+            </View>
         );
     };
 
@@ -150,11 +182,6 @@ export default function ExploreScreen() {
                                 <Text style={styles.name}>{item.name}</Text>
                                 {renderFavoriteIcon(item)}
                             </View>
-
-                            {/* ⭐️ EXIBIR FEEDBACK TEMPORÁRIO AQUI (IGUAL AO ANIMALSFEEDSCREEN) ⭐️ */}
-                            {feedbackMessage.id === item.id.toString() && (
-                                <Text style={styles.feedbackText}>{feedbackMessage.text}</Text>
-                            )}
 
                             {item.translatedTemperament && (
                                 <Text style={styles.temperament}>{item.translatedTemperament}</Text>
@@ -186,11 +213,28 @@ const styles = StyleSheet.create({
     image: { width: "100%", height: 220, resizeMode: "cover" },
     textContainer: { padding: 15 },
 
+    // ⭐️ ESTILOS PADRÃO PARA FAVORITOS (CORRIGIDOS) ⭐️
+    favoriteControlContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingRight: 5,
+    },
     customIcon: {
         width: 30,
         height: 30,
         resizeMode: 'contain',
     },
+    favoritePermanentText: {
+        color: '#FF69B4',
+        textAlign: 'center',
+        fontWeight: 'bold',
+        fontSize: 12,
+        marginTop: 2,
+    },
+    // ❌ REMOVIDO: favoriteIconBorder (Estilo que causava o quadrado) ❌
+
+    // FIM ESTILOS DE FAVORITOS PADRÃO
+
     headerContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -201,14 +245,4 @@ const styles = StyleSheet.create({
     favoriteButton: { padding: 8 },
 
     temperament: { fontSize: 14, color: "#880E4F", lineHeight: 20 },
-
-    // ⭐️ ESTILO DE FEEDBACK IDÊNTICO AO ANIMALSFEEDSCREEN ⭐️
-    feedbackText: {
-        fontSize: 14,
-        color: '#FF1493', // Deep Pink
-        textAlign: 'right',
-        marginTop: -5,
-        marginBottom: 5,
-        fontWeight: 'bold',
-    },
 });
