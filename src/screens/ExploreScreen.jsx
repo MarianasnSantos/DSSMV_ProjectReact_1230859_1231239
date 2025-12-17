@@ -1,6 +1,4 @@
-// src/screens/ExploreScreen.jsx
-
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
     Text,
@@ -16,18 +14,12 @@ import { translateTemperament } from "../utils/translations";
 import AuthStore from "../stores/AuthStore";
 import { PetActions } from "../actions/PetActions";
 
-// Estrelas preenchida/vazia
 const STAR_OUTLINE = require('../assets/favoritar.jpg');
 const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 
-
-// --- Funções Auxiliares FLUX ---
 const getAuthData = () => {
     const { favorites, isLoggedIn } = AuthStore.getState();
-    return {
-        favorites: favorites || [],
-        isLoggedIn
-    };
+    return { favorites: favorites || [], isLoggedIn };
 };
 
 function useAuthStoreState() {
@@ -43,118 +35,108 @@ function useAuthStoreState() {
 export default function ExploreScreen() {
     const [breeds, setBreeds] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false); // Loader para paginação
+    const [page, setPage] = useState(0); // Controle de página da API
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     const { favorites, isLoggedIn } = useAuthStoreState();
-
-    // ESTADO OTIMISTA: Para Optimistic UI
     const [optimisticChanges, setOptimisticChanges] = useState({});
 
-    useEffect(() => {
-        async function loadBreeds() {
-            try {
-                const response = await fetch("https://api.thedogapi.com/v1/breeds");
-                const data = await response.json();
+    // Função de carregamento adaptada para paginação
+    const fetchBreeds = async (pageNumber, shouldRefresh = false) => {
+        try {
+            if (pageNumber === 0 && !shouldRefresh) setLoading(true);
+            else if (!shouldRefresh) setLoadingMore(true);
 
-                const breedsWithImages = await Promise.all(
-                    data.map(async (breed) => {
-                        let imageUrl = breed.image?.url || null;
+            // Chamada à API com limit e page
+            const response = await fetch(`https://api.thedogapi.com/v1/breeds?limit=10&page=${pageNumber}`);
+            const data = await response.json();
 
-                        if (!imageUrl && breed.reference_image_id) {
-                            try {
-                                const imgResponse = await fetch(`https://api.thedogapi.com/v1/images/${breed.reference_image_id}`);
-                                const imgData = await imgResponse.json();
-                                imageUrl = imgData.url;
-                            } catch {
-                                imageUrl = "https://placehold.co/300x200?text=Sem+imagem";
-                            }
+            const breedsWithImages = await Promise.all(
+                data.map(async (breed) => {
+                    let imageUrl = breed.image?.url || null;
+
+                    if (!imageUrl && breed.reference_image_id) {
+                        try {
+                            const imgResponse = await fetch(`https://api.thedogapi.com/v1/images/${breed.reference_image_id}`);
+                            const imgData = await imgResponse.json();
+                            imageUrl = imgData.url;
+                        } catch {
+                            imageUrl = "https://placehold.co/300x200?text=Sem+imagem";
                         }
+                    }
 
-                        const translatedTemperament = translateTemperament(breed.temperament);
+                    return {
+                        ...breed,
+                        id: breed.id.toString(),
+                        imageUrl: imageUrl || "https://placehold.co/300x200?text=Sem+imagem",
+                        translatedTemperament: translateTemperament(breed.temperament)
+                    };
+                })
+            );
 
-                        return {
-                            ...breed,
-                            id: breed.id.toString(),
-                            imageUrl: imageUrl || "https://placehold.co/300x200?text=Sem+imagem",
-                            translatedTemperament: translatedTemperament
-                        };
-                    })
-                );
-
-                setBreeds(breedsWithImages);
-            } catch (error) {
-                console.log("Erro ao carregar raças:", error);
-            } finally {
-                setLoading(false);
-            }
+            setBreeds(prev => shouldRefresh ? breedsWithImages : [...prev, ...breedsWithImages]);
+        } catch (error) {
+            console.log("Erro ao carregar raças:", error);
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+            setIsRefreshing(false);
         }
+    };
 
-        loadBreeds();
+    useEffect(() => {
+        fetchBreeds(0);
     }, []);
 
-    // EFEITO PARA LIMPAR ESTADO OTIMISTA quando o Store é atualizado
-    useEffect(() => {
-        setOptimisticChanges(prev => {
-            const next = { ...prev };
-            Object.keys(prev).forEach(id => {
-                if (favorites.includes(id) === prev[id]) {
-                    delete next[id];
-                }
-            });
-            return next;
-        });
-    }, [favorites]);
+    // Disparado ao chegar no fim da lista
+    const handleLoadMore = () => {
+        if (!loadingMore) {
+            const nextPage = page + 1;
+            setPage(nextPage);
+            fetchBreeds(nextPage);
+        }
+    };
 
+    // Pull to Refresh
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        setPage(0);
+        fetchBreeds(0, true);
+    };
 
-    // FUNÇÃO DE TOGGLE OTIMISTA COM A ESTRELA PERMANENTE
     const renderFavoriteIcon = (item) => {
         if (!isLoggedIn) return null;
-
         const favoriteId = item.id.toString();
-
-        // CÁLCULO OTIMISTA DO ESTADO DO FAVORITO
         const isCurrentlyInStore = favorites.includes(favoriteId);
         const optimisticState = optimisticChanges[favoriteId];
         const isFav = optimisticState !== undefined ? optimisticState : isCurrentlyInStore;
 
-
         const handleToggleFavorite = () => {
-
-            const isFavBeforeClick = optimisticState !== undefined ? optimisticState : isCurrentlyInStore;
-            const newFavState = !isFavBeforeClick;
-
-            // 1. Optimistic Update (Feedback visual imediato)
-            setOptimisticChanges(prev => ({
-                ...prev,
-                [favoriteId]: newFavState,
-            }));
-
-            // 2. Dispara a ação
+            const newFavState = !isFav;
+            setOptimisticChanges(prev => ({ ...prev, [favoriteId]: newFavState }));
             PetActions.toggleFavorite(favoriteId);
         };
 
-
         return (
             <View style={styles.favoriteControlContainer}>
-                <TouchableOpacity
-                    onPress={handleToggleFavorite}
-                >
+                <TouchableOpacity onPress={handleToggleFavorite}>
                     <Image
                         source={isFav ? STAR_FILLED : STAR_OUTLINE}
-                        style={[
-                            styles.customIcon,
-                            // Pinta a estrela vazia de rosa claro
-                            !isFav && { tintColor: '#FFC0CB' },
-                            // ❌ CORRIGIDO: favoriteIconBorder removido daqui ❌
-                        ]}
+                        style={[styles.customIcon, !isFav && { tintColor: '#FFC0CB' }]}
                     />
                 </TouchableOpacity>
+                {isFav && <Text style={styles.favoritePermanentText}>Favorito</Text>}
+            </View>
+        );
+    };
 
-                {/* Mensagem "Favorito" se o item estiver nos favoritos */}
-                {isFav && (
-                    <Text style={styles.favoritePermanentText}>
-                        Favorito
-                    </Text>
-                )}
+    const renderFooter = () => {
+        if (!loadingMore) return <View style={{ height: 20 }} />;
+        return (
+            <View style={styles.loaderFooter}>
+                <ActivityIndicator color="#D81B60" />
+                <Text style={styles.loadingMoreText}>A buscar mais patudos...</Text>
             </View>
         );
     };
@@ -172,29 +154,31 @@ export default function ExploreScreen() {
         <View style={styles.container}>
             <FlatList
                 data={breeds}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item, index) => item.id.toString() + index}
+                onRefresh={handleRefresh}
+                refreshing={isRefreshing}
                 renderItem={({ item }) => (
                     <View style={styles.card}>
                         <Image source={{ uri: item.imageUrl }} style={styles.image} />
                         <View style={styles.textContainer}>
-
                             <View style={styles.headerContainer}>
                                 <Text style={styles.name}>{item.name}</Text>
                                 {renderFavoriteIcon(item)}
                             </View>
-
                             {item.translatedTemperament && (
                                 <Text style={styles.temperament}>{item.translatedTemperament}</Text>
                             )}
                         </View>
                     </View>
                 )}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={renderFooter}
             />
         </View>
     );
 }
 
-// --- ESTILOS ROSA BEBÊ ---
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFF0F5", paddingHorizontal: 15, paddingTop: 10 },
     center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFF0F5" },
@@ -212,37 +196,12 @@ const styles = StyleSheet.create({
     },
     image: { width: "100%", height: 220, resizeMode: "cover" },
     textContainer: { padding: 15 },
-
-    // ⭐️ ESTILOS PADRÃO PARA FAVORITOS (CORRIGIDOS) ⭐️
-    favoriteControlContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingRight: 5,
-    },
-    customIcon: {
-        width: 30,
-        height: 30,
-        resizeMode: 'contain',
-    },
-    favoritePermanentText: {
-        color: '#FF69B4',
-        textAlign: 'center',
-        fontWeight: 'bold',
-        fontSize: 12,
-        marginTop: 2,
-    },
-    // ❌ REMOVIDO: favoriteIconBorder (Estilo que causava o quadrado) ❌
-
-    // FIM ESTILOS DE FAVORITOS PADRÃO
-
-    headerContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 5
-    },
+    favoriteControlContainer: { alignItems: 'center', justifyContent: 'center', paddingRight: 5 },
+    customIcon: { width: 30, height: 30, resizeMode: 'contain' },
+    favoritePermanentText: { color: '#FF69B4', textAlign: 'center', fontWeight: 'bold', fontSize: 12, marginTop: 2 },
+    headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
     name: { fontSize: 22, fontWeight: "bold", color: "#D81B60" },
-    favoriteButton: { padding: 8 },
-
     temperament: { fontSize: 14, color: "#880E4F", lineHeight: 20 },
+    loaderFooter: { paddingVertical: 20, alignItems: 'center' },
+    loadingMoreText: { color: "#D81B60", fontSize: 12, marginTop: 5 }
 });
