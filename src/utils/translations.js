@@ -20,6 +20,9 @@ export const TEMPERAMENT_TRANSLATIONS = {
     'Active': 'Ativo',
     'Strong': 'Forte',
     'Quiet': 'Quieto',
+    'Even Tempered': 'Temperamento equilibrado',
+    'Excitable': 'Entusiasmado',
+    'Determined': 'Determinado',
 
     // Termos adicionais
     'Stubborn': 'Teimoso',
