@@ -1,13 +1,9 @@
-// src/stores/AuthStore.js
-
 import EventEmitter from 'eventemitter3';
 import AppDispatcher from '../dispatchers/AppDispatcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Chave única para guardar o estado no AsyncStorage
 const AUTH_STORE_KEY = 'AuthStoreData';
 
-// Estado privado
 let _state = {
     user: null,
     isLoggedIn: false,
@@ -16,10 +12,6 @@ let _state = {
     favorites: [],
 };
 
-// ------------------------------------------------------------------
-// ⭐️ FUNÇÕES DE PERSISTÊNCIA (DEFINIDAS FORA DA CLASSE) ⭐️
-// ------------------------------------------------------------------
-
 const saveState = async () => {
     try {
         const stateToPersist = {
@@ -27,79 +19,54 @@ const saveState = async () => {
             isLoggedIn: _state.isLoggedIn,
             favorites: _state.favorites,
         };
-        const serializedState = JSON.stringify(stateToPersist);
-        await AsyncStorage.setItem(AUTH_STORE_KEY, serializedState);
+        await AsyncStorage.setItem(AUTH_STORE_KEY, JSON.stringify(stateToPersist));
     } catch (e) {
-        console.warn("Falha ao guardar estado do AuthStore:", e);
+        console.warn("Falha ao guardar estado:", e);
     }
 };
 
 const loadState = async () => {
     try {
         const serializedState = await AsyncStorage.getItem(AUTH_STORE_KEY);
-        if (serializedState === null) {
-            return;
-        }
+        if (serializedState === null) return;
 
         const storedData = JSON.parse(serializedState);
-
-        // Aplica o estado carregado (login e favoritos)
         _state = {
             ..._state,
             user: storedData.user || null,
-            favorites: storedData.favorites || [],
             isLoggedIn: storedData.isLoggedIn || false,
+            favorites: Array.isArray(storedData.favorites) ? storedData.favorites : [],
         };
-
-        // 'store' ainda não foi definido, mas emitChange irá funcionar após a definição da store
         store.emitChange();
-
     } catch (e) {
-        console.warn("Falha ao carregar estado do AuthStore:", e);
+        console.warn("Falha ao carregar estado:", e);
     }
 };
 
-
 class AuthStore extends EventEmitter {
+    getState() { return _state; }
+    emitChange() { this.emit('change'); }
+    addChangeListener(callback) { this.on('change', callback); }
+    removeChangeListener(callback) { this.removeListener('change', callback); }
 
-    getState() {
-        return _state;
-    }
-
-    emitChange() {
-        this.emit('change');
-    }
-
-    addChangeListener(callback) {
-        this.on('change', callback);
-    }
-
-    removeChangeListener(callback) {
-        this.removeListener('change', callback);
-    }
-
-    // ⭐️ MÉTODO initialize() APENAS CHAMA A FUNÇÃO GLOBAL loadState() ⭐️
+    // ⭐️ O 'return' permite que o App.jsx aguarde o carregamento
     initialize() {
-        loadState(); // CHAMA A FUNÇÃO loadState DEFINIDA ACIMA
+        return loadState();
     }
 }
 
-const store = new AuthStore(); // A variável 'store' agora é definida
+const store = new AuthStore();
 
-// --- Registro no Dispatcher (Lógica de Negócio de Autenticação) ---
 AppDispatcher.register((action) => {
     switch (action.type) {
-        // ... (Resto da lógica de ações, inalterada)
         case 'USER_LOGIN_SUCCESS':
         case 'USER_REGISTER_SUCCESS':
-            const fetchedFavorites = action.payload.user.favorites || [];
-
             _state = {
                 ..._state,
                 loading: false,
                 isLoggedIn: true,
                 user: action.payload.user,
-                favorites: fetchedFavorites,
+                favorites: action.payload.user.favorites || [],
                 error: null
             };
             store.emitChange();
@@ -107,7 +74,7 @@ AppDispatcher.register((action) => {
             break;
 
         case 'FAVORITE_SUCCESS':
-            const animalId = action.payload.animalId;
+            const animalId = String(action.payload.animalId);
             let newFavorites = [..._state.favorites];
 
             if (newFavorites.includes(animalId)) {
@@ -116,30 +83,15 @@ AppDispatcher.register((action) => {
                 newFavorites.push(animalId);
             }
 
-            _state = {
-                ..._state,
-                favorites: newFavorites,
-            };
+            _state.favorites = newFavorites;
             store.emitChange();
-            saveState();
+            saveState(); // Guarda no telemóvel
             break;
 
         case 'USER_LOGOUT':
-            _state = { ..._state, isLoggedIn: false, user: null, favorites: [], error: null };
+            _state = { user: null, isLoggedIn: false, favorites: [], loading: false, error: null };
             store.emitChange();
             saveState();
-            break;
-
-        case 'USER_LOGIN_START':
-        case 'USER_REGISTER_START':
-            _state = { ..._state, loading: true, error: null };
-            store.emitChange();
-            break;
-
-        case 'USER_LOGIN_FAIL':
-        case 'USER_REGISTER_FAIL':
-            _state = { ..._state, loading: false, error: action.payload.error };
-            store.emitChange();
             break;
 
         default:

@@ -1,36 +1,7 @@
-// src/screens/OpcoesScreen.jsx
-
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-
-// ⭐️ IMPORTAÇÃO FLUX: Ações do Utilizador para o Logout ⭐️
-import { UserActions } from '../actions/UserActions';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
 const OpcoesScreen = ({ navigation }) => {
-
-    const handleLogout = () => {
-        // Confirmação (opcional, mas recomendada)
-        Alert.alert(
-            "Terminar Sessão",
-            "Tem a certeza que deseja sair?",
-            [
-                {
-                    text: "Cancelar",
-                    style: "cancel"
-                },
-                {
-                    text: "Sair",
-                    onPress: () => {
-                        // 1. Dispara a Ação FLUX de Logout
-                        UserActions.logout();
-
-                        // O AuthStore irá limpar o Async/State. O App.jsx irá redirecionar.
-                    },
-                    style: 'destructive'
-                }
-            ]
-        );
-    };
 
     return (
         <View style={styles.container}>
@@ -64,19 +35,6 @@ const OpcoesScreen = ({ navigation }) => {
                 <Text style={styles.buttonSubText}>Reveja os animais que curtiu.</Text>
             </TouchableOpacity>
 
-            {/* ----------------------------------------------------- */}
-            {/* ⭐️ RODAPÉ E BOTÃO TERMINAR SESSÃO ⭐️ */}
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={handleLogout}
-                >
-                    <Text style={styles.logoutButtonText}>
-                        Terminar Sessão
-                    </Text>
-                </TouchableOpacity>
-            </View>
-            {/* ----------------------------------------------------- */}
 
         </View>
     );
@@ -87,12 +45,14 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 30,
         backgroundColor: '#f8f8f8',
+        justifyContent: 'center', // Centraliza os botões verticalmente agora que o footer saiu
     },
     title: {
         fontSize: 26,
         fontWeight: 'bold',
         textAlign: 'center',
         color: '#333',
+        marginBottom: 10,
     },
     subtitle: {
         fontSize: 16,
@@ -129,36 +89,6 @@ const styles = StyleSheet.create({
     buttonSubText: {
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.9)',
-    },
-
-    // --- ESTILOS DO RODAPÉ E BOTÃO DE LOGOUT ---
-    footer: {
-        // Usa auto-margin para empurrar o conteúdo para o fundo
-        marginTop: 'auto',
-        paddingTop: 15,
-        alignItems: 'center',
-        // Adiciona uma pequena borda para separar visualmente
-        borderTopWidth: 1,
-        borderTopColor: '#e0e0e0',
-    },
-    logoutButton: {
-        backgroundColor: '#FF69B4', // Cor destacada para Logout
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 20,
-        width: '100%',
-        alignItems: 'center',
-        // Estilo de sombra para dar relevo
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 3,
-        elevation: 4,
-    },
-    logoutButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
     },
 });
 
