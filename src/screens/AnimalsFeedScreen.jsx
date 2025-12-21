@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
     View, FlatList, ActivityIndicator, StyleSheet, TouchableOpacity, Text, TextInput,
-    KeyboardAvoidingView, Platform, RefreshControl, Alert, Linking, PermissionsAndroid
+    KeyboardAvoidingView, Platform, RefreshControl, Alert, Linking, PermissionsAndroid, LayoutAnimation, UIManager
 } from "react-native";
-
 import Geolocation from 'react-native-geolocation-service';
 
 import { PetActions } from "../actions/PetActions";
@@ -13,18 +12,14 @@ import { translateTemperament } from "../utils/translations";
 
 import PetCard from "../components/PetCard";
 import BreedSearchModal from "../components/BreedSearchModal";
+import TemperamentModal from "../components/TemperamentModal";
 
-function usePetStoreState() {
-    const [state, setState] = useState(PetStore.getState());
-    useEffect(() => {
-        const handleChange = () => setState(PetStore.getState());
-        PetStore.addChangeListener(handleChange);
-        return () => PetStore.removeListener(handleChange);
-    }, []);
-    return state;
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// --- CALCULAR DISTÂNCIA ---
+// --- FUNÇÃO MATEMÁTICA PARA DISTÂNCIA ---
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return 99999;
     const R = 6371;
@@ -38,6 +33,16 @@ const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     return R * c;
 };
 
+function usePetStoreState() {
+    const [state, setState] = useState(PetStore.getState());
+    useEffect(() => {
+        const handleChange = () => setState(PetStore.getState());
+        PetStore.addChangeListener(handleChange);
+        return () => PetStore.removeListener(handleChange);
+    }, []);
+    return state;
+}
+
 export default function AnimalsFeedScreen({ navigation, route }) {
     const { animals = [], loading = false, breeds = [], filters = {} } = usePetStoreState() || {};
     const { user, favorites, isLoggedIn } = AuthStore.getState();
@@ -45,15 +50,18 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
     const [refreshing, setRefreshing] = useState(false);
     const [isBreedModalVisible, setIsBreedModalVisible] = useState(false);
+    const [isTempModalVisible, setIsTempModalVisible] = useState(false);
+    const [selectedTemps, setSelectedTemps] = useState([]);
     const [optimisticChanges, setOptimisticChanges] = useState({});
     const [showAdopted, setShowAdopted] = useState(false);
     const [locationSearch, setLocationSearch] = useState("");
     const [smartMatchTarget, setSmartMatchTarget] = useState(null);
 
-    //Filtro de Proximidade
+    // Estados para Filtro de Proximidade e UI
     const [sortByDistance, setSortByDistance] = useState(false);
     const [myLocation, setMyLocation] = useState(null);
     const [loadingGPS, setLoadingGPS] = useState(false);
+    const [showFilters, setShowFilters] = useState(false); // <--- NOVO: Controla se os filtros aparecem
 
     useEffect(() => { PetActions.loadAnimals(); }, []);
 
@@ -66,6 +74,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             setLocationSearch("");
             setSortByDistance(false);
             setShowAdopted(false);
+            setShowFilters(false); // Fecha filtros se vier do Smart Match
             navigation.setParams({ smartTemperament: null });
             Alert.alert("Filtro Inteligente 🧠", "A mostrar animais com personalidade parecida!");
         }
@@ -87,13 +96,11 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         setRefreshing(false);
     }, []);
 
-    // --- ATIVAR O MODO "PERTO DE MIM" ---
     const toggleDistanceSort = async () => {
         if (sortByDistance) {
             setSortByDistance(false);
             return;
         }
-
         setLoadingGPS(true);
         try {
             if (Platform.OS === 'android') {
@@ -116,12 +123,15 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                 },
                 { enableHighAccuracy: true, timeout: 15000, showLocationDialog: true }
             );
-        } catch (e) {
-            setLoadingGPS(false);
-        }
+        } catch (e) { setLoadingGPS(false); }
     };
 
-    // --- FILTRAGEM E ORDENAÇÃO ---
+    const toggleFilters = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // Animação suave
+        setShowFilters(!showFilters);
+    };
+
+    // --- FILTRAGEM ---
     const getFilteredAnimals = () => {
         let filteredList = [...animals];
 
@@ -141,7 +151,6 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             return filteredList;
         }
 
-        // 3. Filtros Normais
         if (filters.breed && filters.breed !== 'Todas' && filters.breed !== 'Todos') {
             if (filters.breed === 'Sem Raça') filteredList = filteredList.filter(a => !a.breed || a.breed.trim() === '');
             else filteredList = filteredList.filter(a => (a.breed === filters.breed) || (a.name === filters.breed));
@@ -152,9 +161,12 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             filteredList = filteredList.filter(a => (a.age ? parseInt(a.age) : 0) >= minAge);
         }
 
-        if (filters.temperament?.trim()) {
-            const search = filters.temperament.toLowerCase().trim();
-            filteredList = filteredList.filter(a => translateTemperament(a.temperament).toLowerCase().includes(search));
+        //Escolha Múltipla
+        if (selectedTemps.length > 0) {
+            filteredList = filteredList.filter(animal => {
+                const animalTempPT = translateTemperament(animal.temperament).toLowerCase();
+                return selectedTemps.some(selected => animalTempPT.includes(selected.toLowerCase()));
+            });
         }
 
         if (locationSearch.trim()) {
@@ -162,13 +174,10 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             filteredList = filteredList.filter(a => a.location && a.location.toLowerCase().includes(loc));
         }
 
-        // 4. ORDENAÇÃO POR DISTÂNCIA (NOVO)
         if (sortByDistance && myLocation) {
             filteredList.sort((a, b) => {
-                // Se o animal não tiver GPS (animais antigos), vai para o fim da lista
                 if (!a.lat || !a.lng) return 1;
                 if (!b.lat || !b.lng) return -1;
-
                 const distA = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, a.lat, a.lng);
                 const distB = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, b.lat, b.lng);
                 return distA - distB;
@@ -178,6 +187,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         return filteredList;
     };
 
+    // Ações do Cartão
     const handleToggleFavorite = (id) => {
         const idString = id.toString();
         const isCurrentlyInStore = favorites.includes(idString);
@@ -207,104 +217,117 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
     };
 
-    const clearSmartFilter = () => { setSmartMatchTarget(null); PetActions.loadAnimals(); };
-
     if (loading && !refreshing) return <ActivityIndicator size="large" color="#FF69B4" style={styles.loader} />;
 
     return (
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
 
-            {/* ABAS */}
-            <View style={styles.tabsContainer}>
-                <TouchableOpacity style={[styles.tabButton, !showAdopted && styles.tabButtonActive]} onPress={() => setShowAdopted(false)}>
-                    <Text style={[styles.tabText, !showAdopted && styles.tabTextActive]}>🐶 Disponíveis</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.tabButton, showAdopted && styles.tabButtonActive]} onPress={() => setShowAdopted(true)}>
-                    <Text style={[styles.tabText, showAdopted && styles.tabTextActive]}>🏠 Já Adotados</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* SMART MATCH BADGE */}
-            {smartMatchTarget && (
-                <View style={styles.smartFilterBadge}>
-                    <Text style={styles.smartFilterText}>✨ Modo Compatibilidade Ativo</Text>
-                    <TouchableOpacity onPress={clearSmartFilter} style={styles.clearButton}><Text style={styles.clearButtonText}>Limpar ✕</Text></TouchableOpacity>
-                </View>
-            )}
-
-            {/* FILTROS */}
-            {!smartMatchTarget && (
-                <>
-                    <View style={styles.filterContainer}>
-                        <TouchableOpacity style={styles.breedInputButton} onPress={() => setIsBreedModalVisible(true)}>
-                            <Text style={styles.breedInputText}>{filters.breed && filters.breed !== 'Todos' ? filters.breed : 'Raça (Pesquisar)'}</Text>
-                        </TouchableOpacity>
-                        <TextInput
-                            style={styles.textInputStyle} placeholder="Idade Min" placeholderTextColor="#555" keyboardType="numeric"
-                            value={filters.minAge} onChangeText={(t) => PetActions.setFilter('minAge', t)}
-                        />
-                    </View>
-
-                    {/* FILTROS DE TEXTO E BOTÃO GPS */}
-                    <View style={styles.searchRow}>
-                        <TextInput
-                            style={[styles.fullWidthSearchInput, { flex: 1, marginRight: 5 }]}
-                            placeholder="🔍 Temperamento..." placeholderTextColor="#555"
-                            value={filters.temperament} onChangeText={(t) => PetActions.setFilter('temperament', t)}
-                        />
-                        <TextInput
-                            style={[styles.fullWidthSearchInput, { flex: 1, marginLeft: 5 }]}
-                            placeholder="📍 Cidade..." placeholderTextColor="#555"
-                            value={locationSearch} onChangeText={setLocationSearch}
-                        />
-                    </View>
-
-                    {/* BOTÃO MÁGICO DE PROXIMIDADE */}
-                    <TouchableOpacity
-                        style={[styles.gpsButton, sortByDistance && styles.gpsButtonActive]}
-                        onPress={toggleDistanceSort}
-                        disabled={loadingGPS}
-                    >
-                        {loadingGPS ? <ActivityIndicator color="#fff" size="small"/> : (
-                            <Text style={styles.gpsButtonText}>
-                                {sortByDistance ? "✅ Ordenar: Perto de Mim" : "📍 Ordenar: Perto de Mim"}
-                            </Text>
-                        )}
+            {/* --- CABEÇALHO LIMPO --- */}
+            <View style={styles.header}>
+                {/* 1. Abas de Navegação (Disponíveis / Adotados) */}
+                <View style={styles.tabsContainer}>
+                    <TouchableOpacity style={[styles.tabButton, !showAdopted && styles.tabButtonActive]} onPress={() => setShowAdopted(false)}>
+                        <Text style={[styles.tabText, !showAdopted && styles.tabTextActive]}>🐶 Disponíveis</Text>
                     </TouchableOpacity>
-                </>
-            )}
+                    <TouchableOpacity style={[styles.tabButton, showAdopted && styles.tabButtonActive]} onPress={() => setShowAdopted(true)}>
+                        <Text style={[styles.tabText, showAdopted && styles.tabTextActive]}>🏠 Adotados</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* 2. Barra de Pesquisa Principal + Botão Filtros */}
+                {!smartMatchTarget && (
+                    <View style={styles.mainSearchRow}>
+                        <TouchableOpacity style={styles.temperamentSelector} onPress={() => setIsTempModalVisible(true)}>
+                            <Text style={styles.temperamentText} numberOfLines={1}>
+                                {selectedTemps.length > 0
+                                    ? `🧠 ${selectedTemps.length} selecionados`
+                                    : "🔍 Selecionar Temperamentos"}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.filterToggleButton, showFilters && styles.filterToggleButtonActive]} onPress={toggleFilters}>
+                            <Text style={[styles.filterToggleText, showFilters && {color: '#fff'}]}>⚙️ Filtros</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* 3. Área de Filtros Avançados (Escondida por defeito) */}
+                {showFilters && !smartMatchTarget && (
+                    <View style={styles.advancedFiltersContainer}>
+                        <View style={styles.filterRow}>
+                            {/* Raça */}
+                            <TouchableOpacity style={styles.breedSelector} onPress={() => setIsBreedModalVisible(true)}>
+                                <Text style={styles.breedText} numberOfLines={1}>
+                                    {filters.breed && filters.breed !== 'Todos' ? filters.breed : '🐕 Todas as Raças'}
+                                </Text>
+                            </TouchableOpacity>
+                            {/* Idade */}
+                            <TextInput
+                                style={styles.ageInput} placeholder="Idade Min" placeholderTextColor="#888" keyboardType="numeric"
+                                value={filters.minAge} onChangeText={(t) => PetActions.setFilter('minAge', t)}
+                            />
+                        </View>
+
+                        <View style={styles.filterRow}>
+                            {/* Cidade */}
+                            <TextInput
+                                style={styles.cityInput} placeholder="📍 Filtrar por Cidade" placeholderTextColor="#888"
+                                value={locationSearch} onChangeText={setLocationSearch}
+                            />
+                        </View>
+
+                        {/* Botão Perto de Mim */}
+                        <TouchableOpacity
+                            style={[styles.gpsButton, sortByDistance && styles.gpsButtonActive]}
+                            onPress={toggleDistanceSort}
+                            disabled={loadingGPS}
+                        >
+                            {loadingGPS ? <ActivityIndicator color="#fff" size="small"/> : (
+                                <Text style={styles.gpsButtonText}>
+                                    {sortByDistance ? "✅ Ordenado por Proximidade" : "🌍 Ordenar: Perto de Mim"}
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Smart Match Badge */}
+                {smartMatchTarget && (
+                    <View style={styles.smartFilterBadge}>
+                        <Text style={styles.smartFilterText}>✨ Modo Compatibilidade</Text>
+                        <TouchableOpacity onPress={() => {setSmartMatchTarget(null); PetActions.loadAnimals();}} style={styles.clearButton}>
+                            <Text style={styles.clearButtonText}>Limpar ✕</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
 
             {/* LISTA */}
             <FlatList
                 data={getFilteredAnimals()}
                 keyExtractor={(item) => String(item.id || item._id)}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#FF69B4"]} />}
+                contentContainerStyle={{ paddingBottom: 100 }}
                 renderItem={({ item }) => {
                     const idString = String(item.id || item._id);
                     const isCurrentlyInStore = favorites.includes(idString);
-                    const optimisticState = optimisticChanges[idString];
-                    const isFav = optimisticState !== undefined ? optimisticState : isCurrentlyInStore;
+                    const isFav = optimisticChanges[idString] !== undefined ? optimisticChanges[idString] : isCurrentlyInStore;
 
-                    // Calcular distância para mostrar no cartão (Opcional)
                     let distanceText = "";
                     if (sortByDistance && myLocation && item.lat && item.lng) {
                         const dist = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, item.lat, item.lng);
-                        distanceText = `(${dist.toFixed(1)} km)`;
+                        distanceText = `${dist.toFixed(1)} km`;
                     }
 
                     return (
-                        <View>
-                            {/* Se quiseres mostrar a distância no topo do cartão, podes descomentar isto:
-                            {distanceText !== "" && <Text style={{textAlign: 'center', color: '#D81B60', fontWeight: 'bold'}}>{distanceText}</Text>}
-                            */}
+                        <View style={{position: 'relative'}}>
+                            {distanceText !== "" && (
+                                <View style={styles.distanceBadge}>
+                                    <Text style={styles.distanceText}>📍 {distanceText}</Text>
+                                </View>
+                            )}
                             <PetCard
-                                item={item}
-                                isFav={isFav}
-                                isLoggedIn={isLoggedIn}
-                                userId={userId}
-                                onFavorite={handleToggleFavorite}
-                                onAdopt={handleAdoptCall}
-                                onToggleStatus={handleToggleStatus}
+                                item={item} isFav={isFav} isLoggedIn={isLoggedIn} userId={userId}
+                                onFavorite={handleToggleFavorite} onAdopt={handleAdoptCall} onToggleStatus={handleToggleStatus}
                                 onEdit={(animal) => navigation.navigate('AddAnimal', { animalToEdit: animal })}
                                 onDelete={(id, owner) => Alert.alert("Apagar", "Confirmas?", [{ text: "Não" }, { text: "Sim", onPress: () => PetActions.deleteAnimal(id, owner) }])}
                                 formatDate={formatDate}
@@ -314,14 +337,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                 }}
                 ListEmptyComponent={
                     <View style={{ alignItems: 'center', marginTop: 50, padding: 20 }}>
-                        <Text style={{ textAlign: 'center', color: '#888', fontSize: 16 }}>
-                            {smartMatchTarget ? "Nenhum animal compatível." : "Nenhum animal encontrado."}
-                        </Text>
-                        {smartMatchTarget && (
-                            <TouchableOpacity onPress={clearSmartFilter} style={[styles.clearButton, { marginTop: 20, backgroundColor: '#FF69B4' }]}>
-                                <Text style={styles.clearButtonText}>Ver Todos</Text>
-                            </TouchableOpacity>
-                        )}
+                        <Text style={{ textAlign: 'center', color: '#888', fontSize: 16 }}>Nenhum animal encontrado.</Text>
                     </View>
                 }
             />
@@ -335,6 +351,13 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                 onSelect={(b) => PetActions.setFilter('breed', b)} allBreeds={breeds}
                 selectedBreedName={filters.breed || 'Todos'} showAllOption={true}
             />
+
+            <TemperamentModal
+                isVisible={isTempModalVisible}
+                onClose={() => setIsTempModalVisible(false)}
+                onApply={(selected) => setSelectedTemps(selected)}
+                initialSelected={selectedTemps}
+            />
         </KeyboardAvoidingView>
     );
 }
@@ -342,27 +365,50 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFF0F5" },
     loader: { flex: 1, justifyContent: "center" },
-    tabsContainer: { flexDirection: 'row', backgroundColor: '#FFF', elevation: 3, marginBottom: 5 },
+
+    // CABEÇALHO
+    header: { backgroundColor: '#fff', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, elevation: 4, paddingBottom: 10, marginBottom: 10 },
+
+    // ABAS
+    tabsContainer: { flexDirection: 'row', marginBottom: 10 },
     tabButton: { flex: 1, paddingVertical: 15, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
-    tabButtonActive: { borderBottomColor: '#FF69B4', backgroundColor: '#FFF0F5' },
+    tabButtonActive: { borderBottomColor: '#FF69B4' },
     tabText: { fontSize: 16, fontWeight: 'bold', color: '#999' },
     tabTextActive: { color: '#FF69B4' },
-    smartFilterBadge: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#E1F5FE', padding: 15, margin: 10, borderRadius: 10, borderWidth: 1, borderColor: '#0288D1' },
-    smartFilterText: { color: '#0277BD', fontWeight: 'bold', fontSize: 14, flex: 1 },
-    clearButton: { backgroundColor: '#FF5252', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5 },
-    clearButtonText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-    filterContainer: { flexDirection: 'row', padding: 10, gap: 10, alignItems: 'center' },
-    searchRow: { flexDirection: 'row', paddingHorizontal: 10, marginBottom: 10 },
-    breedInputButton: { flex: 1, height: 50, backgroundColor: '#ffffff', borderRadius: 8, justifyContent: 'center', paddingLeft: 15, borderWidth: 1.5, borderColor: '#FFB6C1', elevation: 2 },
-    breedInputText: { color: '#000', fontSize: 16, fontWeight: '600' },
-    textInputStyle: { width: 100, height: 50, backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1.5, borderColor: '#FFB6C1', paddingHorizontal: 15, color: '#000', fontSize: 16 },
-    fullWidthSearchInput: { height: 50, backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1.5, borderColor: '#FFB6C1', paddingHorizontal: 15, color: '#000', fontSize: 14 },
 
-    // ESTILOS DO BOTÃO GPS
-    gpsButton: { marginHorizontal: 10, marginBottom: 10, backgroundColor: '#2196F3', padding: 12, borderRadius: 8, alignItems: 'center', elevation: 2 },
+    // PESQUISA PRINCIPAL
+    mainSearchRow: { flexDirection: 'row', paddingHorizontal: 15, gap: 10, alignItems: 'center' },
+    mainSearchInput: { flex: 1, height: 45, backgroundColor: '#F0F0F0', borderRadius: 25, paddingHorizontal: 20, color: '#333' },
+    filterToggleButton: { padding: 10, backgroundColor: '#F0F0F0', borderRadius: 12 },
+    filterToggleButtonActive: { backgroundColor: '#FF69B4' },
+    filterToggleText: { fontWeight: 'bold', color: '#555', fontSize: 12 },
+
+    // FILTROS AVANÇADOS (ESCONDIDOS)
+    advancedFiltersContainer: { marginTop: 15, paddingHorizontal: 15, gap: 10 },
+    filterRow: { flexDirection: 'row', gap: 10 },
+
+    breedSelector: { flex: 1, height: 45, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 10, justifyContent: 'center', paddingHorizontal: 15 },
+    breedText: { color: '#555' },
+
+    ageInput: { width: 120, height: 45, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 10, paddingHorizontal: 10, color: '#333', textAlign: 'center' },
+    cityInput: { flex: 1, height: 45, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 10, paddingHorizontal: 15, color: '#333' },
+
+    gpsButton: { backgroundColor: '#2196F3', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 5 },
     gpsButtonActive: { backgroundColor: '#4CAF50' },
-    gpsButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+    gpsButtonText: { color: '#fff', fontWeight: 'bold' },
+
+    // BADGES E FAB
+    smartFilterBadge: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#E1F5FE', padding: 10, margin: 15, borderRadius: 10 },
+    smartFilterText: { color: '#0277BD', fontWeight: 'bold' },
+    clearButton: { backgroundColor: '#FF5252', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5 },
+    clearButtonText: { color: 'white', fontSize: 12 },
+
+    distanceBadge: { position: 'absolute', zIndex: 10, top: 30, right: 30, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+    distanceText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
 
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
+
+    temperamentSelector: { flex: 1, height: 45, backgroundColor: '#F0F0F0', borderRadius: 25, justifyContent: 'center', paddingHorizontal: 20 },
+    temperamentText: { color: '#555' },
 });
