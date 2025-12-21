@@ -34,6 +34,12 @@ export default function AddAnimalScreen({ navigation, route }) {
     const [photo, setPhoto] = useState(animalToEdit?.photoUrl || null);
     const [location, setLocation] = useState(animalToEdit?.location || "");
 
+    // NOVO: Estado para guardar as coordenadas GPS invisíveis
+    const [coords, setCoords] = useState({
+        lat: animalToEdit?.lat || null,
+        lng: animalToEdit?.lng || null
+    });
+
     // Estados de UI
     const [isBreedModalVisible, setIsBreedModalVisible] = useState(false);
     const [loadingLocation, setLoadingLocation] = useState(false);
@@ -47,7 +53,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     useEffect(() => {
         navigation.setOptions({ title: isEditMode ? 'Editar Animal' : 'Novo Animal' });
 
-        // 2. INICIALIZAR O GEOCODER (A TUA CHAVE ESTÁ CORRETA AQUI)
+        // INICIALIZAR O GEOCODER
         Geocoder.init("AIzaSyBMWu-iiiQz4mhftlcYzFe84Ecl8IshLoU", { language : "pt" });
 
         const onAuthChange = () => setUser(AuthStore.getState().user);
@@ -62,11 +68,10 @@ export default function AddAnimalScreen({ navigation, route }) {
         };
     }, [isEditMode, navigation]);
 
-    // --- 3. LÓGICA DE LOCALIZAÇÃO (GPS + GOOGLE API) ---
+    // --- LÓGICA DE LOCALIZAÇÃO (GPS + GOOGLE API) ---
     const obterLocalizacao = async () => {
         setLoadingLocation(true);
         try {
-            // Permissão Android
             if (Platform.OS === 'android') {
                 const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
                 if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
@@ -76,16 +81,15 @@ export default function AddAnimalScreen({ navigation, route }) {
                 }
             }
 
-            // Obter Coordenadas
             Geolocation.getCurrentPosition(
                 async (pos) => {
                     const { latitude, longitude } = pos.coords;
 
-                    try {
-                        // Converter Lat/Long em Texto usando a Google API
-                        const json = await Geocoder.from(latitude, longitude);
+                    // NOVO: Guardar as coordenadas exatas
+                    setCoords({ lat: latitude, lng: longitude });
 
-                        // Lógica para encontrar o nome da Cidade
+                    try {
+                        const json = await Geocoder.from(latitude, longitude);
                         const addressComponent = json.results[0].address_components;
                         let city = "";
 
@@ -109,12 +113,7 @@ export default function AddAnimalScreen({ navigation, route }) {
 
                     } catch (geoError) {
                         console.log("Erro Geocoder:", geoError);
-
-                        // --- O DETETOR DE ERROS ESTÁ AQUI 👇 ---
-                        // Isto vai mostrar no ecrã porque é que o Google está a falhar
-                        Alert.alert("Erro Google Detalhado", JSON.stringify(geoError));
-
-                        // Fallback para coordenadas
+                        Alert.alert("Erro Google", "Não foi possível obter o nome da cidade, mas guardámos o GPS.");
                         setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
                     } finally {
                         setLoadingLocation(false);
@@ -131,7 +130,7 @@ export default function AddAnimalScreen({ navigation, route }) {
         }
     };
 
-    // --- Lógica de Media ---
+    // --- Media ---
     const tirarFoto = async () => {
         if (Platform.OS === 'android') {
             const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
@@ -148,7 +147,7 @@ export default function AddAnimalScreen({ navigation, route }) {
         });
     };
 
-    // --- Submissão Flux ---
+    // --- Submissão ---
     const handleSubmit = async () => {
         if (!name || !contactNumber || !location) return Alert.alert("Erro", "Nome, Contacto e Localização são obrigatórios.");
 
@@ -156,6 +155,10 @@ export default function AddAnimalScreen({ navigation, route }) {
         const animalData = {
             ...(isEditMode && { id: animalId }),
             name, breed, age: Number(age), temperament, contactNumber, photoUrl: photo, location,
+            // NOVO: Enviar coordenadas para a BD
+            lat: coords.lat,
+            lng: coords.lng,
+
             addedBy: user?.username || "Utilizador",
             addedById: user?._id || user?.id,
             ...(isEditMode ? { updatedAt: new Date().toISOString() } : { createdAt: new Date().toISOString() })
@@ -173,7 +176,6 @@ export default function AddAnimalScreen({ navigation, route }) {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>{isEditMode ? 'Editar Animal' : 'Novo Animal'}</Text>
-
             <Text style={styles.label}>Nome *</Text>
             <AppInput value={name} onChangeText={setName} placeholder="Ex: Boby" />
 
