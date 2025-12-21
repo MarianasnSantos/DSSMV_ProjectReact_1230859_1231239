@@ -11,7 +11,8 @@ const OpcoesScreen = ({ navigation }) => {
             {/* Opção 1: Feed de Animais para Adoção */}
             <TouchableOpacity
                 style={[styles.button, styles.adoptionButton]}
-                onPress={() => navigation.navigate('PetList')}
+
+                onPress={() => navigation.navigate('AnimalsFeed')}
             >
                 <Text style={styles.buttonText}>🐶 Ver Animais para Adoção</Text>
                 <Text style={styles.buttonSubText}>Conheça os patudos à espera de um lar.</Text>
@@ -32,7 +33,7 @@ const OpcoesScreen = ({ navigation }) => {
                 onPress={() => navigation.navigate('Favorites')}
             >
                 <Text style={styles.buttonText}>❤️ Favoritos</Text>
-                <Text style={styles.buttonSubText}>Reveja os animais que curtiu.</Text>
+                <Text style={styles.buttonSubText}>Reveja os animais que gostou.</Text>
             </TouchableOpacity>
 
 
@@ -45,7 +46,7 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 30,
         backgroundColor: '#f8f8f8',
-        justifyContent: 'center', // Centraliza os botões verticalmente agora que o footer saiu
+        justifyContent: 'center',
     },
     title: {
         fontSize: 26,

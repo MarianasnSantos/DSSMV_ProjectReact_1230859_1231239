@@ -18,7 +18,6 @@ import { PetActions } from "../actions/PetActions";
 const STAR_OUTLINE = require('../assets/favoritar.jpg');
 const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 
-//{ navigation } para podermos mudar de ecrã
 export default function ExploreScreen({ navigation }) {
 
     // --- Estados Reativos Flux ---
@@ -138,11 +137,12 @@ export default function ExploreScreen({ navigation }) {
         );
     };
 
+    // --- LÓGICA DE NAVEGAÇÃO INTELIGENTE ---
     const handleGoToFeed = (item) => {
-        // Agora enviamos APENAS os temperamentos para comparação
-        // Não enviamos o nome da raça, porque queremos incluir rafeiros
+        // Envia os temperamentos para o Feed
+        // NOTA: O nome aqui ('AnimalsFeed') tem de bater certo com o MainNavigator.jsx
         navigation.navigate('AnimalsFeed', {
-            smartTemperament: item.temperament || "" // Ex: "Friendly, Intelligent, Active"
+            smartTemperament: item.temperament || ""
         });
     };
 
@@ -165,7 +165,6 @@ export default function ExploreScreen({ navigation }) {
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.5}
                 renderItem={({ item }) => (
-                    //View em TouchableOpacity para ser clicável
                     <TouchableOpacity
                         style={styles.card}
                         onPress={() => handleGoToFeed(item)}
@@ -182,9 +181,9 @@ export default function ExploreScreen({ navigation }) {
                                 {item.translatedTemperament || "Temperamento calmo"}
                             </Text>
 
-                            {/* 3. AQUI: Um pequeno botão visual para indicar a ação */}
+                            {/* --- MUDANÇA AQUI: Texto com a LUPA --- */}
                             <View style={styles.ctaContainer}>
-                                <Text style={styles.ctaText}>🔍 Ver animais desta raça</Text>
+                                <Text style={styles.ctaText}>🔍 Ver animais com personalidade parecida</Text>
                             </View>
                         </View>
                     </TouchableOpacity>
@@ -215,11 +214,11 @@ const styles = StyleSheet.create({
 
     temperament: { fontSize: 14, color: "#880E4F", marginTop: 5 },
 
-    // Estilos novos para o CTA (Call To Action)
+    // CTA (Call To Action)
     ctaContainer: {
         marginTop: 15,
         backgroundColor: '#FF69B4',
-        padding: 8,
+        padding: 10,
         borderRadius: 10,
         alignSelf: 'flex-start'
     },
