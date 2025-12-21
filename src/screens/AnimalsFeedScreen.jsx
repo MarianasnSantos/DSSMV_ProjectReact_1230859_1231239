@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     View,
     FlatList,
@@ -11,18 +11,16 @@ import {
     Platform,
     RefreshControl,
     Alert,
-    Linking // Necessário para a função de ligar
+    Linking
 } from "react-native";
 import { PetActions } from "../actions/PetActions";
 import PetStore from "../stores/PetStore";
 import AuthStore from "../stores/AuthStore";
 import { translateTemperament } from "../utils/translations";
 
-// --- IMPORTAÇÃO DOS TEUS COMPONENTES ---
 import PetCard from "../components/PetCard";
 import BreedSearchModal from "../components/BreedSearchModal";
 
-// --- HOOK PARA LIGAR AO PET STORE ---
 function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
@@ -44,13 +42,13 @@ export default function AnimalsFeedScreen({ navigation }) {
     const [isBreedModalVisible, setIsBreedModalVisible] = useState(false);
     const [optimisticChanges, setOptimisticChanges] = useState({});
 
-    // NOVO: Estado para alternar entre "Disponíveis" e "Adotados"
+    // Estado para alternar entre "Disponíveis" e "Adotados"
     const [showAdopted, setShowAdopted] = useState(false);
 
     // 3. CARREGAMENTO INICIAL
     useEffect(() => { PetActions.loadAnimals(); }, []);
 
-    // 4. LÓGICA DE FAVORITOS OTIMISTA (Tua lógica original mantida)
+    // 4. LÓGICA DE FAVORITOS
     useEffect(() => {
         setOptimisticChanges(prev => {
             const next = { ...prev };
@@ -67,7 +65,7 @@ export default function AnimalsFeedScreen({ navigation }) {
         setRefreshing(false);
     }, []);
 
-    // 5. FUNÇÃO DE FILTROS (Tua lógica original + Novo Filtro de Adotados)
+    // 5. FILTROS
     const getFilteredAnimals = () => {
         let filteredList = animals;
 
@@ -104,7 +102,7 @@ export default function AnimalsFeedScreen({ navigation }) {
         return filteredList;
     };
 
-    // 6. AÇÕES DO PET CARD
+    // 6. AÇÕES
 
     const handleToggleFavorite = (id) => {
         const idString = id.toString();
@@ -125,29 +123,43 @@ export default function AnimalsFeedScreen({ navigation }) {
         Linking.openURL(`tel:${cleanNumber}`);
     };
 
-    // NOVA FUNÇÃO: Mudar estado para Adotado/Disponível
     const handleToggleStatus = async (animal) => {
-        // Envia a ação para o teu sistema Flux (tens de garantir que existe no PetActions)
-        // Se não tiveres Flux para isto, podes fazer o fetch direto aqui como mostrei antes
+        // (_id é o correto para o RestDB)
+        const idAnimal = animal._id || animal.id;
+
+        if (!idAnimal) {
+            Alert.alert("Erro", "Não foi possível encontrar o ID deste animal.");
+            return;
+        }
 
         const novoEstado = !animal.adopted;
 
+        console.log(`A atualizar animal ${idAnimal} para estado: ${novoEstado}`);
+
         try {
-            // Exemplo de chamada direta (se não tiveres action criada):
-            await fetch(`https://tuanovabase-1234.restdb.io/rest/pets/${animal._id || animal.id}`, {
-                method: 'PUT',
+            // URL com o ID correto e usando PATCH
+            const response = await fetch(`https://petmatch-afab.restdb.io/rest/animals/${idAnimal}`, {
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'x-apikey': 'A-TUA-API-KEY-AQUI', // <--- SUBSTITUI AQUI
+                    'x-apikey': 'a29c6a5e4f29c400c1ffac21c4c454f2af5a3',
+                    'cache-control': 'no-cache'
                 },
                 body: JSON.stringify({ adopted: novoEstado }),
             });
 
-            // Recarrega a lista para atualizar a interface
-            PetActions.loadAnimals();
+            if (!response.ok) {
+                throw new Error(`Erro API: ${response.status}`);
+            }
+
+            // Atualiza a lista completa chamando o Action
+            await PetActions.loadAnimals();
+
+            Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado! 🏠" : "Disponível para adoção! 🐶");
 
         } catch (error) {
-            Alert.alert("Erro", "Falha ao atualizar estado.");
+            console.error("Erro no toggle:", error);
+            Alert.alert("Erro", "Falha ao atualizar. Verifica a API Key e o URL.");
         }
     };
 
@@ -157,14 +169,12 @@ export default function AnimalsFeedScreen({ navigation }) {
         return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
     };
 
-    // 7. RENDERIZAÇÃO
-
     if (loading && !refreshing) return <ActivityIndicator size="large" color="#FF69B4" style={styles.loader} />;
 
     return (
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
 
-            {/* --- ABAS TOPO (Disponíveis / Adotados) --- */}
+            {/* ABAS TOPO */}
             <View style={styles.tabsContainer}>
                 <TouchableOpacity
                     style={[styles.tabButton, !showAdopted && styles.tabButtonActive]}
@@ -181,7 +191,7 @@ export default function AnimalsFeedScreen({ navigation }) {
                 </TouchableOpacity>
             </View>
 
-            {/* --- FILTROS DE PESQUISA --- */}
+            {/* FILTROS */}
             <View style={styles.filterContainer}>
                 <TouchableOpacity style={styles.breedInputButton} onPress={() => setIsBreedModalVisible(true)}>
                     <Text style={styles.breedInputText}>
@@ -205,7 +215,7 @@ export default function AnimalsFeedScreen({ navigation }) {
                 onChangeText={(t) => PetActions.setFilter('temperament', t)}
             />
 
-            {/* --- LISTA --- */}
+            {/* LISTA */}
             <FlatList
                 data={getFilteredAnimals()}
                 keyExtractor={(item) => String(item.id || item._id)}
@@ -221,12 +231,11 @@ export default function AnimalsFeedScreen({ navigation }) {
                             item={item}
                             isFav={isFav}
                             isLoggedIn={isLoggedIn}
-                            userId={userId} // ID do user para saber se é dono
+                            userId={userId}
 
-                            // Ações
                             onFavorite={handleToggleFavorite}
-                            onAdopt={handleAdoptCall}       // Ligar
-                            onToggleStatus={handleToggleStatus} // Mudar estado
+                            onAdopt={handleAdoptCall}
+                            onToggleStatus={handleToggleStatus}
                             onEdit={(animal) => navigation.navigate('AddAnimal', { animalToEdit: animal })}
                             onDelete={(id, owner) => Alert.alert("Apagar", "Tens a certeza?", [
                                 {text: "Não"},
@@ -243,7 +252,6 @@ export default function AnimalsFeedScreen({ navigation }) {
                 }
             />
 
-            {/* Botão Flutuante (FAB) para Adicionar */}
             <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('AddAnimal')}>
                 <Text style={styles.fabText}>+</Text>
             </TouchableOpacity>
@@ -263,8 +271,6 @@ export default function AnimalsFeedScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFF0F5" },
     loader: { flex: 1, justifyContent: "center" },
-
-    // ABAS NOVAS
     tabsContainer: {
         flexDirection: 'row',
         backgroundColor: '#FFF',
@@ -284,8 +290,6 @@ const styles = StyleSheet.create({
     },
     tabText: { fontSize: 16, fontWeight: 'bold', color: '#999' },
     tabTextActive: { color: '#FF69B4' },
-
-    // FILTROS
     filterContainer: {
         flexDirection: 'row',
         padding: 10,
@@ -327,7 +331,6 @@ const styles = StyleSheet.create({
         color: '#000',
         fontSize: 16
     },
-
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
 });
