@@ -86,6 +86,7 @@ export const TEMPERAMENT_TRANSLATIONS = {
     'Attentive': 'Atento',
     'Proud': 'Orgulhoso',
     'Self-assured': 'Auto-confiante',
+    'Trusting' : 'Confiável'
 };
 
 
