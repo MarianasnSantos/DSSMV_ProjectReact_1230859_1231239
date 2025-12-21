@@ -21,6 +21,13 @@ import { translateTemperament } from "../utils/translations";
 import AuthStore from "../stores/AuthStore";
 import { PetActions } from "../actions/PetActions";
 
+import {
+    RESTDB_API_KEY,
+    RESTDB_BASE_URL,
+    DOG_API_URL,
+    DOG_API_KEY
+} from "../config/ApiKeys";
+
 const STAR_OUTLINE = require('../assets/favoritar.jpg');
 const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 
@@ -31,7 +38,7 @@ export default function ExploreScreen({ navigation }) {
     const [favorites, setFavorites] = useState(AuthStore.getState().favorites || []);
     const [isLoggedIn, setIsLoggedIn] = useState(AuthStore.getState().isLoggedIn);
 
-    // --- ESTADOS: RAÇAS (Lógica Antiga) ---
+    // --- ESTADOS: RAÇAS ---
     const [breeds, setBreeds] = useState([]);
     const [loadingBreeds, setLoadingBreeds] = useState(true);
     const [loadingMoreBreeds, setLoadingMoreBreeds] = useState(false);
@@ -58,6 +65,7 @@ export default function ExploreScreen({ navigation }) {
             const state = AuthStore.getState();
             setFavorites(state.favorites || []);
             setIsLoggedIn(state.isLoggedIn);
+            setUser(state.user);
         };
         AuthStore.addChangeListener(onAuthChange);
 
@@ -87,7 +95,9 @@ export default function ExploreScreen({ navigation }) {
             if (pageNumber === 0 && !shouldRefresh) setLoadingBreeds(true);
             else if (!shouldRefresh) setLoadingMoreBreeds(true);
 
-            const response = await fetch(`https://api.thedogapi.com/v1/breeds?limit=10&page=${pageNumber}`);
+            const response = await fetch(`${DOG_API_URL}/breeds?limit=10&page=${pageNumber}`, {
+                headers: { 'x-api-key': DOG_API_KEY }
+            });
             const data = await response.json();
 
             const breedsWithImages = await Promise.all(
@@ -95,7 +105,9 @@ export default function ExploreScreen({ navigation }) {
                     let imageUrl = breed.image?.url;
                     if (!imageUrl && breed.reference_image_id) {
                         try {
-                            const imgRes = await fetch(`https://api.thedogapi.com/v1/images/${breed.reference_image_id}`);
+                            const imgRes = await fetch(`${DOG_API_URL}/images/${breed.reference_image_id}`, {
+                                headers: { 'x-api-key': DOG_API_KEY }
+                            });
                             const imgData = await imgRes.json();
                             imageUrl = imgData.url;
                         } catch { imageUrl = "https://placehold.co/300x200?text=Sem+imagem"; }
@@ -167,17 +179,16 @@ export default function ExploreScreen({ navigation }) {
         setLoadingPosts(true);
 
         try {
-            const response = await fetch("https://petmatch-afab.restdb.io/rest/posts", {
+            const response = await fetch(`${RESTDB_BASE_URL}/posts`, {
                 method: 'GET',
                 headers: {
                     "content-type": "application/json",
-                    "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3",
+                    "x-apikey": RESTDB_API_KEY,
                     "cache-control": "no-cache"
                 }
             });
 
             const data = await response.json();
-
             setPosts(Array.isArray(data) ? data.reverse() : []);
 
         } catch (error) {
@@ -200,16 +211,15 @@ export default function ExploreScreen({ navigation }) {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            // Apagar da Base de Dados
-                            await fetch(`https://petmatch-afab.restdb.io/rest/posts/${postId}`, {
+                            // 👇 USA VARIÁVEIS SEGURAS
+                            await fetch(`${RESTDB_BASE_URL}/posts/${postId}`, {
                                 method: 'DELETE',
                                 headers: {
                                     "content-type": "application/json",
-                                    "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3",
+                                    "x-apikey": RESTDB_API_KEY,
                                     "cache-control": "no-cache"
                                 }
                             });
-                            // Atualizar a lista localmente
                             setPosts(prev => prev.filter(p => p._id !== postId));
                         } catch (error) {
                             console.log("Erro ao apagar:", error);
@@ -226,18 +236,17 @@ export default function ExploreScreen({ navigation }) {
             { text: "Cancelar" },
             { text: "Sim", style: "destructive", onPress: async () => {
                     try {
-                        // 1. Remove visualmente logo
                         setCommentsList(prev => prev.filter(c => c._id !== commentId));
 
-                        // 2. Apaga da Base de Dados
-                        await fetch(`https://petmatch-afab.restdb.io/rest/comments/${commentId}`, {
+                        await fetch(`${RESTDB_BASE_URL}/comments/${commentId}`, {
                             method: 'DELETE',
-                            headers: { "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3" }
+                            headers: { "x-apikey": RESTDB_API_KEY }
                         });
                     } catch (e) { console.log(e); }
                 }}
         ]);
     };
+
     const handleRefreshPosts = () => {
         setIsRefreshingPosts(true);
         fetchCommunityPosts();
@@ -251,11 +260,11 @@ export default function ExploreScreen({ navigation }) {
         setCommentsList([]);
 
         try {
-            // Procura comentários onde postId é igual ao ID do post
             const query = JSON.stringify({ postId: post._id });
-            const response = await fetch(`https://petmatch-afab.restdb.io/rest/comments?q=${query}`, {
+            // 👇 USA VARIÁVEIS SEGURAS
+            const response = await fetch(`${RESTDB_BASE_URL}/comments?q=${query}`, {
                 method: 'GET',
-                headers: { "content-type": "application/json", "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3", "cache-control": "no-cache" }
+                headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY, "cache-control": "no-cache" }
             });
             const data = await response.json();
             setCommentsList(Array.isArray(data) ? data : []);
@@ -267,14 +276,12 @@ export default function ExploreScreen({ navigation }) {
         if (newComment.trim() === "") return;
         if (!user) return Alert.alert("Ops", "Precisas de estar logado.");
 
-        // --- FORMATAR A DATA E HORA ---
         const now = new Date();
         const dia = String(now.getDate()).padStart(2, '0');
         const mes = String(now.getMonth() + 1).padStart(2, '0');
         const hora = String(now.getHours()).padStart(2, '0');
         const min = String(now.getMinutes()).padStart(2, '0');
         const dataFormatada = `${dia}/${mes} às ${hora}:${min}`;
-        // -------------------------------------
 
         const commentData = {
             postId: currentPostId,
@@ -288,9 +295,10 @@ export default function ExploreScreen({ navigation }) {
         setNewComment("");
 
         try {
-            await fetch("https://petmatch-afab.restdb.io/rest/comments", {
+
+            await fetch(`${RESTDB_BASE_URL}/comments`, {
                 method: "POST",
-                headers: { "content-type": "application/json", "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3" },
+                headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY },
                 body: JSON.stringify(commentData)
             });
         } catch (error) { console.log("Erro ao enviar comentário"); }
@@ -321,15 +329,12 @@ export default function ExploreScreen({ navigation }) {
 
 // UI: Cartão de Comunidade
     const renderCommunityPost = ({ item }) => {
-        // Verificar se sou o dono do post
         const user = AuthStore.getState().user;
         const currentUserId = user?._id || user?.id;
-        // Compara o ID do user logado com o authorId do post
         const isOwner = String(currentUserId) === String(item.authorId);
 
         return (
             <View style={styles.cardCommunity}>
-                {/* Cabeçalho: Autor, Data e Botão Apagar */}
                 <View style={styles.commHeader}>
                     <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                         <View style={styles.avatarPlaceholder}><Text>👤</Text></View>
@@ -338,8 +343,6 @@ export default function ExploreScreen({ navigation }) {
                             <Text style={styles.commDate}>{item.date}</Text>
                         </View>
                     </View>
-
-                    {/* SÓ MOSTRA O LIXO SE FOR O DONO */}
                     {isOwner && (
                         <TouchableOpacity onPress={() => handleDeletePost(item._id)}>
                             <Text style={{fontSize: 20}}>🗑️</Text>
@@ -347,14 +350,11 @@ export default function ExploreScreen({ navigation }) {
                     )}
                 </View>
 
-                {/* Imagem Grande */}
                 <Image source={{ uri: item.image }} style={styles.commImage} resizeMode="cover" />
 
-                {/* Rodapé: Ações + Descrição */}
                 <View style={styles.commFooter}>
                     <View style={styles.actionRow}>
                         <TouchableOpacity style={{marginRight: 15}}><Text style={{fontSize: 22}}>❤️</Text></TouchableOpacity>
-                        {}
                         <TouchableOpacity onPress={() => openComments(item)}>
                             <Text style={{fontSize: 22}}>💬</Text>
                         </TouchableOpacity>
@@ -373,24 +373,15 @@ export default function ExploreScreen({ navigation }) {
     return (
         <SafeAreaView style={styles.container}>
 
-            {/* --- ABAS DE NAVEGAÇÃO --- */}
             <View style={styles.tabsContainer}>
-                <TouchableOpacity
-                    style={[styles.tabButton, activeTab === 'RACAS' && styles.tabButtonActive]}
-                    onPress={() => setActiveTab('RACAS')}
-                >
+                <TouchableOpacity style={[styles.tabButton, activeTab === 'RACAS' && styles.tabButtonActive]} onPress={() => setActiveTab('RACAS')}>
                     <Text style={[styles.tabText, activeTab === 'RACAS' && styles.tabTextActive]}>🐕 Explorar Raças</Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.tabButton, activeTab === 'COMUNIDADE' && styles.tabButtonActive]}
-                    onPress={() => setActiveTab('COMUNIDADE')}
-                >
+                <TouchableOpacity style={[styles.tabButton, activeTab === 'COMUNIDADE' && styles.tabButtonActive]} onPress={() => setActiveTab('COMUNIDADE')}>
                     <Text style={[styles.tabText, activeTab === 'COMUNIDADE' && styles.tabTextActive]}>📸 Comunidade</Text>
                 </TouchableOpacity>
             </View>
 
-            {/* --- CONTEÚDO: RAÇAS --- */}
             {activeTab === 'RACAS' && (
                 <FlatList
                     data={breeds}
@@ -405,46 +396,25 @@ export default function ExploreScreen({ navigation }) {
                 />
             )}
 
-            {/* --- CONTEÚDO: COMUNIDADE --- */}
             {activeTab === 'COMUNIDADE' && (
                 <>
                     <FlatList
                         data={posts}
-                        keyExtractor={(item) => `post-${item.id}`}
+                        keyExtractor={(item) => `post-${item._id || item.id || Math.random()}`}
                         renderItem={renderCommunityPost}
                         onRefresh={handleRefreshPosts}
                         refreshing={isRefreshingPosts}
-                        ListEmptyComponent={
-                            loadingPosts
-                                ? <ActivityIndicator style={styles.centerLoader} color="#FF69B4" size="large" />
-                                : <Text style={styles.emptyText}>Sem partilhas ainda. Sê o primeiro!</Text>
-                        }
+                        ListEmptyComponent={loadingPosts ? <ActivityIndicator style={styles.centerLoader} color="#FF69B4" size="large" /> : <Text style={styles.emptyText}>Sem partilhas ainda. Sê o primeiro!</Text>}
                     />
-
-                    {/* Botão flutuante só aparece na aba Comunidade */}
-                    <TouchableOpacity
-                        style={styles.fab}
-                        onPress={() => navigation.navigate('CreatePost')}
-                    >
+                    <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}>
                         <Text style={styles.fabText}>+</Text>
                     </TouchableOpacity>
                 </>
             )}
 
-            {/* --- MODAL DE COMENTÁRIOS (CORRIGIDO) --- */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={styles.modalOverlay}
-                >
+            <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-
-                        {/* 1. Header com botão FECHAR */}
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Comentários 💬</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -452,7 +422,6 @@ export default function ExploreScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 2. Lista de Comentários */}
                         {loadingComments ? (
                             <ActivityIndicator color="#FF69B4" style={{marginTop: 20}} />
                         ) : (
@@ -460,20 +429,15 @@ export default function ExploreScreen({ navigation }) {
                                 data={commentsList}
                                 keyExtractor={(item, index) => index.toString()}
                                 renderItem={({ item }) => {
-                                    // Verifica se o comentário é meu
                                     const isMyComment = String(user?._id || user?.id) === String(item.userId);
-
                                     return (
                                         <View style={styles.commentItem}>
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                                                 <Text style={styles.commentAuthor}>{item.author}</Text>
                                                 <Text style={styles.commentDate}>{item.date}</Text>
                                             </View>
-
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
                                                 <Text style={styles.commentText}>{item.text}</Text>
-
-                                                {/* Botão de Apagar */}
                                                 {isMyComment && (
                                                     <TouchableOpacity onPress={() => handleDeleteComment(item._id)}>
                                                         <Text style={{fontSize: 14, color: '#FF0000'}}>🗑️</Text>
@@ -487,19 +451,15 @@ export default function ExploreScreen({ navigation }) {
                             />
                         )}
 
-                        {/* 3. Área de Escrever (INPUT) */}
                         <View style={styles.inputContainer}>
                             <TextInput
-                                style={styles.input}
-                                placeholder="Escreve um comentário..."
-                                value={newComment}
-                                onChangeText={setNewComment}
+                                style={styles.input} placeholder="Escreve um comentário..."
+                                value={newComment} onChangeText={setNewComment}
                             />
                             <TouchableOpacity onPress={handleSendComment}>
                                 <Text style={styles.sendBtn}>Enviar</Text>
                             </TouchableOpacity>
                         </View>
-
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -509,16 +469,13 @@ export default function ExploreScreen({ navigation }) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFF0F5" },
-
     tabsContainer: { flexDirection: 'row', backgroundColor: '#FFF', elevation: 3, marginBottom: 5 },
     tabButton: { flex: 1, paddingVertical: 15, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
     tabButtonActive: { borderBottomColor: '#FF69B4', backgroundColor: '#FFF0F5' },
     tabText: { fontSize: 15, fontWeight: 'bold', color: '#999' },
     tabTextActive: { color: '#FF69B4' },
-
     centerLoader: { marginTop: 50 },
     emptyText: { textAlign: 'center', marginTop: 50, color: '#888', fontSize: 16 },
-
     cardBreed: { backgroundColor: "#FFE4E1", margin: 15, borderRadius: 20, overflow: "hidden", elevation: 4 },
     imageBreed: { width: "100%", height: 220 },
     textContainer: { padding: 15 },
@@ -528,36 +485,27 @@ const styles = StyleSheet.create({
     temperament: { fontSize: 14, color: "#880E4F", marginTop: 5 },
     ctaContainer: { marginTop: 15, backgroundColor: '#FF69B4', padding: 10, borderRadius: 10, alignSelf: 'flex-start' },
     ctaText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-
     cardCommunity: { backgroundColor: '#FFF', marginBottom: 15, marginHorizontal: 0, elevation: 2 },
-
     commHeader: { flexDirection: 'row', alignItems: 'center', padding: 10 },
     avatarPlaceholder: { width: 35, height: 35, borderRadius: 20, backgroundColor: '#EEE', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
     commAuthor: { fontWeight: 'bold', color: '#000', fontSize: 14 },
     commDate: { color: '#888', fontSize: 11 },
-
     commImage: { width: '100%', height: 350, backgroundColor: '#f0f0f0' },
-
     commFooter: { padding: 10 },
     actionRow: { flexDirection: 'row', marginBottom: 8 },
     commDescription: { color: '#333', fontSize: 14, lineHeight: 20 },
-
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
-
-    // ESTILOS DO MODAL
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '70%', padding: 20 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderColor: '#EEE', paddingBottom: 10 },
     modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#D81B60' },
     closeBtn: { fontSize: 16, color: '#888' },
-
     commentItem: { marginBottom: 15, borderBottomWidth: 1, borderColor: '#f0f0f0', paddingBottom: 5 },
     commentAuthor: { fontWeight: 'bold', fontSize: 13, color: '#333' },
     commentText: { fontSize: 14, color: '#555', marginVertical: 2 },
     commentDate: { fontSize: 10, color: '#999' },
     emptyComments: { textAlign: 'center', marginTop: 20, color: '#aaa' },
-
     inputContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderColor: '#EEE', paddingTop: 10 },
     input: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 15, height: 40, marginRight: 10 },
     sendBtn: { color: '#FF69B4', fontWeight: 'bold' }
