@@ -63,8 +63,6 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     const [loadingGPS, setLoadingGPS] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
-    useEffect(() => { PetActions.loadAnimals(); }, []);
-
     useEffect(() => {
         if (route.params?.smartTemperament) {
             setSmartMatchTarget(route.params.smartTemperament);
@@ -131,12 +129,21 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         setShowFilters(!showFilters);
     };
 
-    // --- FILTRAGEM ---
+    // --- FILTRAGEM E ORDENAÇÃO ---
     const getFilteredAnimals = () => {
+        // 1. Vai buscar a lista original ao Store
         let filteredList = [...animals];
 
+        filteredList.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA;
+        });
+
+        // 3. Filtro de Adotados vs Disponíveis
         filteredList = filteredList.filter(pet => showAdopted ? pet.adopted === true : !pet.adopted);
 
+        // 4. Smart Match
         if (smartMatchTarget) {
             const targetWords = smartMatchTarget.split(',').map(t => t.trim().toLowerCase());
             filteredList = filteredList.filter(animal => {
@@ -151,17 +158,19 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             return filteredList;
         }
 
+        // 5. Filtros de Raça
         if (filters.breed && filters.breed !== 'Todas' && filters.breed !== 'Todos') {
             if (filters.breed === 'Sem Raça') filteredList = filteredList.filter(a => !a.breed || a.breed.trim() === '');
             else filteredList = filteredList.filter(a => (a.breed === filters.breed) || (a.name === filters.breed));
         }
 
+        // 6. Filtro de Idade
         const minAge = parseInt(filters.minAge);
         if (!isNaN(minAge) && minAge > 0) {
             filteredList = filteredList.filter(a => (a.age ? parseInt(a.age) : 0) >= minAge);
         }
 
-        //Escolha Múltipla
+        // 7. Filtro de Temperamento
         if (selectedTemps.length > 0) {
             filteredList = filteredList.filter(animal => {
                 const animalTempPT = translateTemperament(animal.temperament).toLowerCase();
@@ -169,11 +178,13 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             });
         }
 
+        // 8. Filtro de Cidade
         if (locationSearch.trim()) {
             const loc = locationSearch.toLowerCase().trim();
             filteredList = filteredList.filter(a => a.location && a.location.toLowerCase().includes(loc));
         }
 
+        // 9. Ordenação por Distância
         if (sortByDistance && myLocation) {
             filteredList.sort((a, b) => {
                 if (!a.lat || !a.lng) return 1;
