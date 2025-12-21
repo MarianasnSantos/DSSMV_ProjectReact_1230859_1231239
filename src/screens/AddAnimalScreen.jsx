@@ -4,7 +4,10 @@ import {
     ScrollView, Image, View, ActivityIndicator, PermissionsAndroid, Platform
 } from "react-native";
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+
+// 1. IMPORTAR AS BIBLIOTECAS DE LOCALIZAÇÃO
 import Geolocation from 'react-native-geolocation-service';
+import Geocoder from 'react-native-geocoding';
 
 // --- Flux ---
 import AuthStore from "../stores/AuthStore";
@@ -22,7 +25,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     const isEditMode = !!animalToEdit;
     const animalId = animalToEdit?.id;
 
-    // --- Estados do Formulário (Preservados a 100%) ---
+    // --- Estados do Formulário ---
     const [name, setName] = useState(animalToEdit?.name || "");
     const [breed, setBreed] = useState(animalToEdit?.breed || "Sem Raça");
     const [age, setAge] = useState(animalToEdit?.age ? String(animalToEdit.age) : "");
@@ -43,20 +46,27 @@ export default function AddAnimalScreen({ navigation, route }) {
 
     useEffect(() => {
         navigation.setOptions({ title: isEditMode ? 'Editar Animal' : 'Novo Animal' });
+
+        // 2. INICIALIZAR O GEOCODER COM A TUA CHAVE (Copiada da tua imagem)
+        Geocoder.init("AIzaSyBMWu-iiiQz4mhftlcYzFe84Ecl8IshLoU", { language : "pt" });
+
         const onAuthChange = () => setUser(AuthStore.getState().user);
         const onPetChange = () => setAllBreeds(PetStore.getState().breeds || []);
+
         AuthStore.addChangeListener(onAuthChange);
         PetStore.addChangeListener(onPetChange);
+
         return () => {
             AuthStore.removeChangeListener(onAuthChange);
             PetStore.removeChangeListener(onPetChange);
         };
-    }, [isEditMode]);
+    }, [isEditMode, navigation]); // <--- CORREÇÃO AQUI: Adicionado 'navigation'
 
-    // --- Lógica de Localização (Completa) ---
+    // --- 3. LÓGICA DE LOCALIZAÇÃO (GPS + GOOGLE API) ---
     const obterLocalizacao = async () => {
         setLoadingLocation(true);
         try {
+            // Permissão Android
             if (Platform.OS === 'android') {
                 const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
                 if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
@@ -65,37 +75,81 @@ export default function AddAnimalScreen({ navigation, route }) {
                     return;
                 }
             }
+
+            // Obter Coordenadas
             Geolocation.getCurrentPosition(
-                (pos) => {
-                    setLocation(`${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
+                async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+
+                    try {
+                        // Converter Lat/Long em Texto usando a Google API
+                        const json = await Geocoder.from(latitude, longitude);
+
+                        // Lógica para encontrar o nome da Cidade
+                        const addressComponent = json.results[0].address_components;
+                        let city = "";
+
+                        for (let component of addressComponent) {
+                            // Tenta encontrar a cidade (locality)
+                            if (component.types.includes('locality')) {
+                                city = component.long_name;
+                                break;
+                            }
+                            // Se não, tenta o concelho/vila
+                            if (component.types.includes('administrative_area_level_2') && !city) {
+                                city = component.long_name;
+                            }
+                        }
+
+                        // Se falhar, usa o distrito ou a morada formatada
+                        if (!city) {
+                            const formatted = json.results[0].formatted_address.split(',')[1];
+                            city = formatted || "Localização Detetada";
+                        }
+
+                        setLocation(city); // Guarda o nome da cidade (ex: "Valongo")
+                        Alert.alert("Sucesso", `📍 Localização definida: ${city}`);
+
+                    } catch (geoError) {
+                        console.log("Erro Geocoder:", geoError);
+                        // Se a Google falhar, guarda as coordenadas como fallback
+                        setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                    } finally {
+                        setLoadingLocation(false);
+                    }
+                },
+                (err) => {
+                    Alert.alert("Erro GPS", err.message);
                     setLoadingLocation(false);
                 },
-                (err) => { Alert.alert("Erro GPS", err.message); setLoadingLocation(false); },
                 { enableHighAccuracy: true, timeout: 15000, showLocationDialog: true }
             );
-        } catch (err) { setLoadingLocation(false); }
+        } catch (err) {
+            setLoadingLocation(false);
+        }
     };
 
-    // --- Lógica de Media (Preservada quality 0.1) ---
+    // --- Lógica de Media ---
     const tirarFoto = async () => {
         if (Platform.OS === 'android') {
             const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
             if (granted !== PermissionsAndroid.RESULTS.GRANTED) return Alert.alert("Erro", "Sem câmara.");
         }
-        launchCamera({ mediaType: 'photo', quality: 0.1, includeBase64: true }, (res) => {
+        launchCamera({ mediaType: 'photo', quality: 0.5, includeBase64: true }, (res) => {
             if (res.assets) setPhoto(`data:image/jpeg;base64,${res.assets[0].base64}`);
         });
     };
 
     const abrirGaleria = () => {
-        launchImageLibrary({ mediaType: 'photo', quality: 0.1, includeBase64: true }, (res) => {
+        launchImageLibrary({ mediaType: 'photo', quality: 0.5, includeBase64: true }, (res) => {
             if (res.assets) setPhoto(`data:image/jpeg;base64,${res.assets[0].base64}`);
         });
     };
 
     // --- Submissão Flux ---
     const handleSubmit = async () => {
-        if (!name || !contactNumber) return Alert.alert("Erro", "Nome e Contacto são obrigatórios.");
+        if (!name || !contactNumber || !location) return Alert.alert("Erro", "Nome, Contacto e Localização são obrigatórios.");
+
         setIsSaving(true);
         const animalData = {
             ...(isEditMode && { id: animalId }),
@@ -104,16 +158,21 @@ export default function AddAnimalScreen({ navigation, route }) {
             addedById: user?._id || user?.id,
             ...(isEditMode ? { updatedAt: new Date().toISOString() } : { createdAt: new Date().toISOString() })
         };
+
         const success = isEditMode ? await PetActions.updateAnimal(animalData) : await PetActions.addAnimal(animalData);
+
         setIsSaving(false);
-        if (success) { Alert.alert("Sucesso", "Dados guardados!"); navigation.goBack(); }
+        if (success) {
+            Alert.alert("Sucesso", "Dados guardados!");
+            navigation.goBack();
+        }
     };
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>{isEditMode ? 'Editar Animal' : 'Novo Animal'}</Text>
 
-            <Text style={styles.label}>Nome</Text>
+            <Text style={styles.label}>Nome *</Text>
             <AppInput value={name} onChangeText={setName} placeholder="Ex: Boby" />
 
             <Text style={styles.label}>Raça</Text>
@@ -136,14 +195,23 @@ export default function AddAnimalScreen({ navigation, route }) {
                 {isFetchingTemperament && <ActivityIndicator style={styles.absLoader} color="#D81B60" />}
             </View>
 
-            <Text style={styles.label}>Contacto</Text>
+            <Text style={styles.label}>Contacto *</Text>
             <AppInput value={contactNumber} onChangeText={setContactNumber} keyboardType="phone-pad" placeholder="9xxxxxxxx" />
 
-            <Text style={styles.label}>Localização</Text>
-            <TouchableOpacity style={styles.locBtn} onPress={obterLocalizacao} disabled={loadingLocation}>
-                {loadingLocation ? <ActivityIndicator color="#fff"/> : <Text style={styles.whiteBtnText}>📍 Obter Localização</Text>}
-            </TouchableOpacity>
-            <AppInput value={location} editable={false} placeholder="Coordenadas GPS" style={{ fontStyle: 'italic', color: '#666' }} />
+            {/* SECÇÃO DE LOCALIZAÇÃO ATUALIZADA */}
+            <Text style={styles.label}>Localização *</Text>
+            <View style={styles.locRow}>
+                <AppInput
+                    value={location}
+                    onChangeText={setLocation}
+                    placeholder="Cidade (ou use o botão)"
+                    style={{ flex: 1, marginBottom: 0 }}
+                />
+                <TouchableOpacity style={styles.locBtnSmall} onPress={obterLocalizacao} disabled={loadingLocation}>
+                    {loadingLocation ? <ActivityIndicator color="#fff" size="small"/> : <Text style={styles.whiteBtnText}>Google📍</Text>}
+                </TouchableOpacity>
+            </View>
+            <Text style={styles.hint}>O botão usa o GPS e a Google API para preencher a cidade.</Text>
 
             <Text style={styles.label}>Foto</Text>
             <View style={styles.row}>
@@ -183,8 +251,12 @@ const styles = StyleSheet.create({
     label: { fontSize: 16, fontWeight: "600", color: "#D81B60", marginTop: 5, marginBottom: 5 },
     inputBox: { backgroundColor: "#fff", padding: 12, borderRadius: 10, borderWidth: 1.5, borderColor: "#FFB6C1", marginBottom: 15 },
     inputText: { color: "#000", fontSize: 16 },
-    locBtn: { backgroundColor: "#FF69B4", padding: 12, borderRadius: 10, marginBottom: 10, alignItems: 'center' },
+
+    locRow: { flexDirection: 'row', gap: 10, marginBottom: 5, alignItems: 'center' },
+    locBtnSmall: { backgroundColor: "#DB4437", paddingHorizontal: 15, height: 50, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
     whiteBtnText: { color: "#fff", fontWeight: "bold" },
+    hint: { fontSize: 12, color: '#888', marginBottom: 15, fontStyle: 'italic' },
+
     row: { flexDirection: 'row', gap: 10, marginTop: 5 },
     photoBtn: { flex: 1, backgroundColor: "#FFB6C1", padding: 12, borderRadius: 10, alignItems: 'center' },
     photoBtnOutline: { flex: 1, borderWidth: 1.5, borderColor: "#FFB6C1", padding: 12, borderRadius: 10, alignItems: 'center', backgroundColor: '#fff' },
