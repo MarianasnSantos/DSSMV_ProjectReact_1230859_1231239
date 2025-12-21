@@ -27,6 +27,9 @@ const PetCard = ({
     // Verificação de contacto
     const contactPhone = item.contactNumber || item.contact_number || item.phone || "";
 
+    const dataPublicacao = item.createdAt ? formatDate(item.createdAt) : "Recente";
+    const autor = item.addedBy || "Utilizador";
+
     return (
         <View style={[styles.card, item.adopted && styles.cardAdopted]}>
             <View>
@@ -41,6 +44,7 @@ const PetCard = ({
                 )}
             </View>
 
+            {}
             <View style={styles.info}>
                 <View style={styles.headerContainer}>
                     <Text style={styles.name}>
@@ -62,11 +66,17 @@ const PetCard = ({
                     <Text style={styles.detailValue}>🎂 {item.age ? item.age + " anos" : "Jovem"}</Text>
                     {item.location && <Text style={styles.locationText}>📍 {item.location}</Text>}
 
-                    {/* --- AQUI ESTÁ O TEMPERAMENTO DE VOLTA --- */}
                     {translatedTemperament && (
                         <Text style={styles.detailValueFull}>✨ {translatedTemperament}</Text>
                     )}
                 </View>
+
+                {/* RODAPÉ */}
+                <View style={styles.footerContainer}>
+                    <Text style={styles.footerText}>👤 {autor}</Text>
+                    <Text style={styles.footerText}> {dataPublicacao}</Text>
+                </View>
+                {/* ----------------------------------------------------- */}
 
                 {isOwner ? (
                     <View>
@@ -103,6 +113,7 @@ const PetCard = ({
                     )
                 )}
             </View>
+            {/* FIM DA VIEW INFO */}
         </View>
     );
 };
@@ -121,11 +132,23 @@ const styles = StyleSheet.create({
 
     detailsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
     detailValue: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
-
-    // --- ESTILO QUE FALTAVA ---
     detailValueFull: { fontSize: 14, color: '#880E4F', fontWeight: 'bold', width: '100%', marginTop: 5 },
-
     locationText: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
+
+    footerContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        borderTopWidth: 1,
+        borderTopColor: '#FFC0CB',
+        paddingTop: 8,
+        marginTop: 5,
+        marginBottom: 5
+    },
+    footerText: {
+        fontSize: 12,
+        color: '#666',
+        fontStyle: 'italic'
+    },
 
     adoptButton: { backgroundColor: '#FFB6C1', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
     adoptButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },

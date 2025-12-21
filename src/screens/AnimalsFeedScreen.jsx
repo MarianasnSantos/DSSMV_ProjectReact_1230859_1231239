@@ -61,7 +61,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     const [sortByDistance, setSortByDistance] = useState(false);
     const [myLocation, setMyLocation] = useState(null);
     const [loadingGPS, setLoadingGPS] = useState(false);
-    const [showFilters, setShowFilters] = useState(false); // <--- NOVO: Controla se os filtros aparecem
+    const [showFilters, setShowFilters] = useState(false);
 
     useEffect(() => { PetActions.loadAnimals(); }, []);
 
@@ -127,7 +127,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     };
 
     const toggleFilters = () => {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); // Animação suave
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setShowFilters(!showFilters);
     };
 
