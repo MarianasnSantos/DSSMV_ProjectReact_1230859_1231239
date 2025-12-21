@@ -1,13 +1,18 @@
 import AppDispatcher from '../dispatchers/AppDispatcher';
 import AuthStore from '../stores/AuthStore';
 
+import {
+    RESTDB_API_KEY,
+    RESTDB_BASE_URL,
+    DOG_API_URL,
+    DOG_API_KEY
+} from '../config/ApiKeys';
+
 // ----------------------------
 // CONFIGURAÇÕES
 // ----------------------------
-const RESTDB_API_KEY = 'a29c6a5e4f29c400c1ffac21c4c454f2af5a3';
-const RESTDB_URL = 'https://petmatch-afab.restdb.io/rest/animals';
-// Ajuste a URL abaixo para a sua coleção de utilizadores
-const RESTDB_USERS_URL = 'https://petmatch-afab.restdb.io/rest/appusers';
+const RESTDB_URL = `${RESTDB_BASE_URL}/animals`;
+const RESTDB_USERS_URL = `${RESTDB_BASE_URL}/appusers`;
 
 // ----------------------------
 // Funções auxiliares (API)
@@ -15,7 +20,10 @@ const RESTDB_USERS_URL = 'https://petmatch-afab.restdb.io/rest/appusers';
 
 async function getBreedInfo(breedName) {
     try {
-        const res = await fetch('https://api.thedogapi.com/v1/breeds');
+        // 👇 Usa URL e Chave do ficheiro de configuração
+        const res = await fetch(`${DOG_API_URL}/breeds`, {
+            headers: { 'x-api-key': DOG_API_KEY }
+        });
         const data = await res.json();
         if (!Array.isArray(data)) return {};
         const breed = data.find(b => b.name.toLowerCase() === (breedName || "").toLowerCase());
@@ -42,7 +50,10 @@ async function fetchAnimalsFromRestDB() {
 
 async function fetchDogBreeds() {
     try {
-        const res = await fetch('https://api.thedogapi.com/v1/breeds');
+        // URL e Chave do ficheiro de configuração
+        const res = await fetch(`${DOG_API_URL}/breeds`, {
+            headers: { 'x-api-key': DOG_API_KEY }
+        });
         const data = await res.json();
         return Array.isArray(data) ? data.map(b => b.name) : [];
     } catch { return []; }
@@ -201,7 +212,6 @@ export class PetActions {
         const userId = user?._id || user?.id;
 
         if (userId) {
-            // favorites aqui já contém a lista atualizada pelo dispatch acima
             syncUserFavoritesToRestDB(userId, favorites);
         }
     }

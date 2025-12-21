@@ -193,3 +193,6 @@ android/build/
 !.yarn/sdks
 !.yarn/versions
 .cxx/
+
+# Chaves de API
+src/config/ApiKeys.js
