@@ -18,7 +18,9 @@ import { PetActions } from "../actions/PetActions";
 const STAR_OUTLINE = require('../assets/favoritar.jpg');
 const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 
-export default function ExploreScreen() {
+//{ navigation } para podermos mudar de ecrã
+export default function ExploreScreen({ navigation }) {
+
     // --- Estados Reativos Flux ---
     const [favorites, setFavorites] = useState(AuthStore.getState().favorites || []);
     const [isLoggedIn, setIsLoggedIn] = useState(AuthStore.getState().isLoggedIn);
@@ -45,7 +47,7 @@ export default function ExploreScreen() {
         return () => AuthStore.removeChangeListener(onAuthChange);
     }, []);
 
-    // Limpeza de estado otimista (Sincronização)
+    // Limpeza de estado otimista
     useEffect(() => {
         setOptimisticChanges(prev => {
             const next = { ...prev };
@@ -136,6 +138,14 @@ export default function ExploreScreen() {
         );
     };
 
+    const handleGoToFeed = (item) => {
+        // Agora enviamos APENAS os temperamentos para comparação
+        // Não enviamos o nome da raça, porque queremos incluir rafeiros
+        navigation.navigate('AnimalsFeed', {
+            smartTemperament: item.temperament || "" // Ex: "Friendly, Intelligent, Active"
+        });
+    };
+
     if (loading) {
         return (
             <View style={styles.center}>
@@ -155,16 +165,29 @@ export default function ExploreScreen() {
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.5}
                 renderItem={({ item }) => (
-                    <View style={styles.card}>
+                    //View em TouchableOpacity para ser clicável
+                    <TouchableOpacity
+                        style={styles.card}
+                        onPress={() => handleGoToFeed(item)}
+                        activeOpacity={0.9}
+                    >
                         <Image source={{ uri: item.imageUrl }} style={styles.image} />
                         <View style={styles.textContainer}>
                             <View style={styles.headerContainer}>
                                 <Text style={styles.name}>{item.name}</Text>
                                 {renderFavoriteIcon(item)}
                             </View>
-                            <Text style={styles.temperament}>{item.translatedTemperament || "Temperamento calmo"}</Text>
+
+                            <Text style={styles.temperament}>
+                                {item.translatedTemperament || "Temperamento calmo"}
+                            </Text>
+
+                            {/* 3. AQUI: Um pequeno botão visual para indicar a ação */}
+                            <View style={styles.ctaContainer}>
+                                <Text style={styles.ctaText}>🔍 Ver animais desta raça</Text>
+                            </View>
                         </View>
-                    </View>
+                    </TouchableOpacity>
                 )}
                 ListFooterComponent={loadingMore && (
                     <View style={styles.footer}><ActivityIndicator color="#D81B60" /></View>
@@ -178,14 +201,29 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFF0F5" },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     loadingText: { marginTop: 10, color: "#D81B60", fontWeight: "bold" },
+
     card: { backgroundColor: "#FFE4E1", margin: 15, borderRadius: 20, overflow: "hidden", elevation: 4 },
     image: { width: "100%", height: 220 },
     textContainer: { padding: 15 },
+
     headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     name: { fontSize: 22, fontWeight: "bold", color: "#D81B60", flex: 1 },
+
     favoriteControlContainer: { alignItems: 'center' },
     customIcon: { width: 30, height: 30, resizeMode: 'contain' },
     favoriteText: { color: '#FF69B4', fontSize: 10, fontWeight: 'bold' },
+
     temperament: { fontSize: 14, color: "#880E4F", marginTop: 5 },
+
+    // Estilos novos para o CTA (Call To Action)
+    ctaContainer: {
+        marginTop: 15,
+        backgroundColor: '#FF69B4',
+        padding: 8,
+        borderRadius: 10,
+        alignSelf: 'flex-start'
+    },
+    ctaText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
+
     footer: { padding: 20 }
 });

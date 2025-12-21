@@ -69,7 +69,7 @@ const MainNavigator = () => {
             />
 
             <MainStack.Screen
-                name="PetList"
+                name="AnimalsFeed"
                 component={AnimalsFeedScreen}
                 options={{ title: 'Animais para Adoção' }}
             />
