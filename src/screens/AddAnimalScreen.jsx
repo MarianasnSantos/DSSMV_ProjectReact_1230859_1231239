@@ -47,7 +47,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     useEffect(() => {
         navigation.setOptions({ title: isEditMode ? 'Editar Animal' : 'Novo Animal' });
 
-        // 2. INICIALIZAR O GEOCODER COM A TUA CHAVE (Copiada da tua imagem)
+        // 2. INICIALIZAR O GEOCODER (A TUA CHAVE ESTÁ CORRETA AQUI)
         Geocoder.init("AIzaSyBMWu-iiiQz4mhftlcYzFe84Ecl8IshLoU", { language : "pt" });
 
         const onAuthChange = () => setUser(AuthStore.getState().user);
@@ -60,7 +60,7 @@ export default function AddAnimalScreen({ navigation, route }) {
             AuthStore.removeChangeListener(onAuthChange);
             PetStore.removeChangeListener(onPetChange);
         };
-    }, [isEditMode, navigation]); // <--- CORREÇÃO AQUI: Adicionado 'navigation'
+    }, [isEditMode, navigation]);
 
     // --- 3. LÓGICA DE LOCALIZAÇÃO (GPS + GOOGLE API) ---
     const obterLocalizacao = async () => {
@@ -90,29 +90,31 @@ export default function AddAnimalScreen({ navigation, route }) {
                         let city = "";
 
                         for (let component of addressComponent) {
-                            // Tenta encontrar a cidade (locality)
                             if (component.types.includes('locality')) {
                                 city = component.long_name;
                                 break;
                             }
-                            // Se não, tenta o concelho/vila
                             if (component.types.includes('administrative_area_level_2') && !city) {
                                 city = component.long_name;
                             }
                         }
 
-                        // Se falhar, usa o distrito ou a morada formatada
                         if (!city) {
                             const formatted = json.results[0].formatted_address.split(',')[1];
                             city = formatted || "Localização Detetada";
                         }
 
-                        setLocation(city); // Guarda o nome da cidade (ex: "Valongo")
+                        setLocation(city);
                         Alert.alert("Sucesso", `📍 Localização definida: ${city}`);
 
                     } catch (geoError) {
                         console.log("Erro Geocoder:", geoError);
-                        // Se a Google falhar, guarda as coordenadas como fallback
+
+                        // --- O DETETOR DE ERROS ESTÁ AQUI 👇 ---
+                        // Isto vai mostrar no ecrã porque é que o Google está a falhar
+                        Alert.alert("Erro Google Detalhado", JSON.stringify(geoError));
+
+                        // Fallback para coordenadas
                         setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
                     } finally {
                         setLoadingLocation(false);
@@ -198,7 +200,6 @@ export default function AddAnimalScreen({ navigation, route }) {
             <Text style={styles.label}>Contacto *</Text>
             <AppInput value={contactNumber} onChangeText={setContactNumber} keyboardType="phone-pad" placeholder="9xxxxxxxx" />
 
-            {/* SECÇÃO DE LOCALIZAÇÃO ATUALIZADA */}
             <Text style={styles.label}>Localização *</Text>
             <View style={styles.locRow}>
                 <AppInput
@@ -251,12 +252,10 @@ const styles = StyleSheet.create({
     label: { fontSize: 16, fontWeight: "600", color: "#D81B60", marginTop: 5, marginBottom: 5 },
     inputBox: { backgroundColor: "#fff", padding: 12, borderRadius: 10, borderWidth: 1.5, borderColor: "#FFB6C1", marginBottom: 15 },
     inputText: { color: "#000", fontSize: 16 },
-
     locRow: { flexDirection: 'row', gap: 10, marginBottom: 5, alignItems: 'center' },
     locBtnSmall: { backgroundColor: "#DB4437", paddingHorizontal: 15, height: 50, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
     whiteBtnText: { color: "#fff", fontWeight: "bold" },
     hint: { fontSize: 12, color: '#888', marginBottom: 15, fontStyle: 'italic' },
-
     row: { flexDirection: 'row', gap: 10, marginTop: 5 },
     photoBtn: { flex: 1, backgroundColor: "#FFB6C1", padding: 12, borderRadius: 10, alignItems: 'center' },
     photoBtnOutline: { flex: 1, borderWidth: 1.5, borderColor: "#FFB6C1", padding: 12, borderRadius: 10, alignItems: 'center', backgroundColor: '#fff' },

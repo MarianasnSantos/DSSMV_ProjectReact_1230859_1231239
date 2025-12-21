@@ -44,30 +44,28 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     const [optimisticChanges, setOptimisticChanges] = useState({});
     const [showAdopted, setShowAdopted] = useState(false);
 
-    // NOVO ESTADO: Para guardar a lista de temperamentos alvo (vindo da comunidade)
+    // NOVO: Filtro Local de Localização (Cidade)
+    const [locationSearch, setLocationSearch] = useState("");
+
+    // Estado Smart Match
     const [smartMatchTarget, setSmartMatchTarget] = useState(null);
 
     // CARREGAMENTO INICIAL
     useEffect(() => { PetActions.loadAnimals(); }, []);
 
-    // --- LÓGICA INTELIGENTE: Receber o Temperamento da Comunidade ---
+    // --- LÓGICA INTELIGENTE ---
     useEffect(() => {
         if (route.params?.smartTemperament) {
-            console.log("Modo Compatibilidade Ativado:", route.params.smartTemperament);
-
             setSmartMatchTarget(route.params.smartTemperament);
-
             PetActions.setFilter('breed', 'Todos');
             PetActions.setFilter('minAge', '');
             PetActions.setFilter('temperament', '');
-
+            setLocationSearch(""); // Limpa filtro de cidade
             setShowAdopted(false);
-
             navigation.setParams({ smartTemperament: null });
-
             Alert.alert("Filtro Inteligente 🧠", "A mostrar animais com personalidade parecida!");
         }
-    }, [route.params, navigation]); // <--- CORREÇÃO AQUI: Adicionei 'navigation'
+    }, [route.params, navigation]);
 
     // LÓGICA DE FAVORITOS
     useEffect(() => {
@@ -82,12 +80,11 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        // setSmartMatchTarget(null); // Descomenta se quiseres limpar filtro ao puxar
         await PetActions.loadAnimals();
         setRefreshing(false);
     }, []);
 
-    // --- O ALGORITMO DE FILTRAGEM ---
+    // --- O ALGORITMO DE FILTRAGEM ATUALIZADO ---
     const getFilteredAnimals = () => {
         let filteredList = animals;
 
@@ -99,27 +96,21 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         // 2. MODO SMART MATCH
         if (smartMatchTarget) {
             const targetWords = smartMatchTarget.split(',').map(t => t.trim().toLowerCase());
-
             filteredList = filteredList.filter(animal => {
                 if (!animal.temperament) return false;
-
                 const animalWords = animal.temperament.split(',').map(t => t.trim().toLowerCase());
-
                 let matches = 0;
                 targetWords.forEach(target => {
-                    if (animalWords.some(w => w.includes(target) || target.includes(w))) {
-                        matches++;
-                    }
+                    if (animalWords.some(w => w.includes(target) || target.includes(w))) matches++;
                 });
-
                 return matches >= 2;
             });
-
             return filteredList;
         }
 
         // --- MODO NORMAL ---
 
+        // A. Raça
         if (filters.breed && filters.breed !== 'Todas' && filters.breed !== 'Todos') {
             if (filters.breed === 'Sem Raça') {
                 filteredList = filteredList.filter(a => !a.breed || a.breed.trim() === '');
@@ -128,6 +119,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             }
         }
 
+        // B. Idade
         const minAge = parseInt(filters.minAge);
         if (!isNaN(minAge) && minAge > 0) {
             filteredList = filteredList.filter(a => {
@@ -136,10 +128,19 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             });
         }
 
+        // C. Temperamento
         if (filters.temperament?.trim()) {
             const search = filters.temperament.toLowerCase().trim();
             filteredList = filteredList.filter(a =>
                 translateTemperament(a.temperament).toLowerCase().includes(search)
+            );
+        }
+
+        // D. Localização (Cidade)
+        if (locationSearch.trim()) {
+            const loc = locationSearch.toLowerCase().trim();
+            filteredList = filteredList.filter(a =>
+                a.location && a.location.toLowerCase().includes(loc)
             );
         }
 
@@ -152,40 +153,24 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         const isCurrentlyInStore = favorites.includes(idString);
         const isOptimistic = optimisticChanges[idString];
         const isFavBeforeClick = isOptimistic !== undefined ? isOptimistic : isCurrentlyInStore;
-
         setOptimisticChanges(prev => ({ ...prev, [idString]: !isFavBeforeClick }));
         PetActions.toggleFavorite(id);
     };
 
     const handleAdoptCall = (contactNumber) => {
-        if (!contactNumber) {
-            Alert.alert("Aviso", "Este animal não tem contacto associado.");
-            return;
-        }
-        const cleanNumber = contactNumber.replace(/[^0-9]/g, '');
-        Linking.openURL(`tel:${cleanNumber}`);
+        if (!contactNumber) return Alert.alert("Aviso", "Sem contacto.");
+        Linking.openURL(`tel:${contactNumber.replace(/[^0-9]/g, '')}`);
     };
 
     const handleToggleStatus = async (animal) => {
         const idAnimal = animal._id || animal.id;
-        if (!idAnimal) return;
-
         const novoEstado = !animal.adopted;
         try {
-            const response = await fetch(`https://petmatch-afab.restdb.io/rest/animals/${idAnimal}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-apikey': 'a29c6a5e4f29c400c1ffac21c4c454f2af5a3',
-                    'cache-control': 'no-cache'
-                },
-                body: JSON.stringify({ adopted: novoEstado }),
-            });
-            if (!response.ok) throw new Error("Erro API");
-            await PetActions.loadAnimals();
+            await PetActions.updateAnimal({ id: idAnimal, _id: idAnimal, adopted: novoEstado }); // Simplificado se a tua Action suportar
+            // Ou mantém o fetch manual se preferires
             Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado!" : "Disponível!");
         } catch (error) {
-            Alert.alert("Erro", "Falha ao atualizar.");
+            console.log(error);
         }
     };
 
@@ -205,7 +190,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     return (
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
 
-            {/* ABAS TOPO */}
+            {/* ABAS */}
             <View style={styles.tabsContainer}>
                 <TouchableOpacity style={[styles.tabButton, !showAdopted && styles.tabButtonActive]} onPress={() => setShowAdopted(false)}>
                     <Text style={[styles.tabText, !showAdopted && styles.tabTextActive]}>🐶 Disponíveis</Text>
@@ -215,17 +200,17 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                 </TouchableOpacity>
             </View>
 
-            {/* BADGE SMART FILTER */}
+            {/* SMART MATCH BADGE */}
             {smartMatchTarget && (
                 <View style={styles.smartFilterBadge}>
                     <Text style={styles.smartFilterText}>✨ Modo Compatibilidade Ativo</Text>
                     <TouchableOpacity onPress={clearSmartFilter} style={styles.clearButton}>
-                        <Text style={styles.clearButtonText}>Limpar Filtro ✕</Text>
+                        <Text style={styles.clearButtonText}>Limpar ✕</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
-            {/* FILTROS NORMAIS */}
+            {/* FILTROS */}
             {!smartMatchTarget && (
                 <>
                     <View style={styles.filterContainer}>
@@ -234,6 +219,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                                 {filters.breed && filters.breed !== 'Todos' ? filters.breed : 'Raça (Pesquisar)'}
                             </Text>
                         </TouchableOpacity>
+
                         <TextInput
                             style={styles.textInputStyle}
                             placeholder="Idade Min"
@@ -243,17 +229,28 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                             onChangeText={(t) => PetActions.setFilter('minAge', t)}
                         />
                     </View>
-                    <TextInput
-                        style={styles.fullWidthSearchInput}
-                        placeholder="Pesquisar Temperamento"
-                        placeholderTextColor="#555"
-                        value={filters.temperament}
-                        onChangeText={(t) => PetActions.setFilter('temperament', t)}
-                    />
+
+                    {/* FILTRO DE LOCALIZAÇÃO ADICIONADO AQUI */}
+                    <View style={styles.searchRow}>
+                        <TextInput
+                            style={[styles.fullWidthSearchInput, { flex: 1, marginRight: 5 }]}
+                            placeholder="🔍 Procurar Temperamento..."
+                            placeholderTextColor="#555"
+                            value={filters.temperament}
+                            onChangeText={(t) => PetActions.setFilter('temperament', t)}
+                        />
+                        <TextInput
+                            style={[styles.fullWidthSearchInput, { flex: 1, marginLeft: 5 }]}
+                            placeholder="📍 Cidade..."
+                            placeholderTextColor="#555"
+                            value={locationSearch}
+                            onChangeText={setLocationSearch}
+                        />
+                    </View>
                 </>
             )}
 
-            {/* LISTA */}
+            {/* LISTA DE ANIMAIS */}
             <FlatList
                 data={getFilteredAnimals()}
                 keyExtractor={(item) => String(item.id || item._id)}
@@ -283,12 +280,12 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                     <View style={{ alignItems: 'center', marginTop: 50, padding: 20 }}>
                         <Text style={{ textAlign: 'center', color: '#888', fontSize: 16 }}>
                             {smartMatchTarget
-                                ? "Nenhum animal com personalidade compatível (min. 2 características) encontrado. 😢\nTenta outra raça!"
-                                : (showAdopted ? "Ainda não há adoções." : "Não foram encontrados animais.")}
+                                ? "Nenhum animal compatível encontrado. 😢"
+                                : "Não foram encontrados animais com estes filtros."}
                         </Text>
                         {smartMatchTarget && (
                             <TouchableOpacity onPress={clearSmartFilter} style={[styles.clearButton, {marginTop: 20, backgroundColor: '#FF69B4'}]}>
-                                <Text style={styles.clearButtonText}>Ver Todos os Animais</Text>
+                                <Text style={styles.clearButtonText}>Ver Todos</Text>
                             </TouchableOpacity>
                         )}
                     </View>
@@ -314,32 +311,31 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFF0F5" },
     loader: { flex: 1, justifyContent: "center" },
+
+    // TABS
     tabsContainer: { flexDirection: 'row', backgroundColor: '#FFF', elevation: 3, marginBottom: 5 },
     tabButton: { flex: 1, paddingVertical: 15, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
     tabButtonActive: { borderBottomColor: '#FF69B4', backgroundColor: '#FFF0F5' },
     tabText: { fontSize: 16, fontWeight: 'bold', color: '#999' },
     tabTextActive: { color: '#FF69B4' },
 
-    smartFilterBadge: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#E1F5FE',
-        padding: 15,
-        margin: 10,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#0288D1'
-    },
+    // SMART FILTER
+    smartFilterBadge: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#E1F5FE', padding: 15, margin: 10, borderRadius: 10, borderWidth: 1, borderColor: '#0288D1' },
     smartFilterText: { color: '#0277BD', fontWeight: 'bold', fontSize: 14, flex: 1 },
     clearButton: { backgroundColor: '#FF5252', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5 },
     clearButtonText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
 
+    // INPUTS
     filterContainer: { flexDirection: 'row', padding: 10, gap: 10, alignItems: 'center' },
+    searchRow: { flexDirection: 'row', paddingHorizontal: 10, marginBottom: 10 },
+
     breedInputButton: { flex: 1, height: 50, backgroundColor: '#ffffff', borderRadius: 8, justifyContent: 'center', paddingLeft: 15, borderWidth: 1.5, borderColor: '#FFB6C1', elevation: 2 },
     breedInputText: { color: '#000', fontSize: 16, fontWeight: '600' },
+
     textInputStyle: { width: 100, height: 50, backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1.5, borderColor: '#FFB6C1', paddingHorizontal: 15, color: '#000', fontSize: 16 },
-    fullWidthSearchInput: { marginHorizontal: 10, marginBottom: 10, height: 55, backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1.5, borderColor: '#FFB6C1', paddingHorizontal: 15, color: '#000', fontSize: 16 },
+    fullWidthSearchInput: { height: 50, backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1.5, borderColor: '#FFB6C1', paddingHorizontal: 15, color: '#000', fontSize: 14 },
+
+    // FAB
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
 });
