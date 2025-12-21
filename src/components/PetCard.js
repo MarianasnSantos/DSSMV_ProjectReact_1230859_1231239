@@ -11,25 +11,20 @@ const PetCard = ({
                      isLoggedIn,
                      userId,
                      onFavorite,
-                     onAdopt,       // Função de Ligar
-                     onToggleStatus,// Função de Mudar Estado
+                     onAdopt,
+                     onToggleStatus,
                      onEdit,
                      onDelete,
                      formatDate
                  }) => {
 
-    // 1. IMAGEM
     const photo = item.photoUrl || item.image?.url || "https://placehold.co/300x200";
-
-    // 2. TEMPERAMENTO
     const translatedTemperament = translateTemperament(item.temperament);
 
-    // 3. VERIFICAÇÃO DE DONO (A mesma que faz o botão Apagar aparecer)
-    // Convertemos tudo para texto para garantir que não falha
+    // Verificação de dono
     const isOwner = userId && (String(item.addedById) === String(userId) || String(item._by) === String(userId));
 
-    // 4. CORREÇÃO DO NÚMERO DE TELEFONE
-    // Procura o número em vários campos possíveis para não falhar
+    // Verificação de contacto
     const contactPhone = item.contactNumber || item.contact_number || item.phone || "";
 
     return (
@@ -39,7 +34,6 @@ const PetCard = ({
                     source={{ uri: photo }}
                     style={[styles.image, item.adopted && { opacity: 0.6 }]}
                 />
-                {/* ETIQUETA VISUAL DE ADOTADO */}
                 {item.adopted && (
                     <View style={styles.overlayLabel}>
                         <Text style={styles.overlayText}>JÁ ADOTADO 🏠</Text>
@@ -67,15 +61,15 @@ const PetCard = ({
                 <View style={styles.detailsContainer}>
                     <Text style={styles.detailValue}>🎂 {item.age ? item.age + " anos" : "Jovem"}</Text>
                     {item.location && <Text style={styles.locationText}>📍 {item.location}</Text>}
+
+                    {/* --- AQUI ESTÁ O TEMPERAMENTO DE VOLTA --- */}
+                    {translatedTemperament && (
+                        <Text style={styles.detailValueFull}>✨ {translatedTemperament}</Text>
+                    )}
                 </View>
 
-                {/* --- AQUI ESTÁ A CORREÇÃO DE LÓGICA --- */}
-                {/* Usamos if/else (ternário) para garantir que SÓ aparece um grupo de botões */}
-
                 {isOwner ? (
-                    // GRUPO 1: ÉS O DONO (Vês isto)
                     <View>
-                        {/* Botão de Mudar Estado */}
                         <TouchableOpacity
                             style={[styles.statusButton, item.adopted ? styles.btnMakeAvailable : styles.btnMakeAdopted]}
                             onPress={() => onToggleStatus(item)}
@@ -85,7 +79,6 @@ const PetCard = ({
                             </Text>
                         </TouchableOpacity>
 
-                        {/* Botões de Admin (Editar/Apagar) */}
                         <View style={styles.authorButtonsContainer}>
                             <TouchableOpacity style={styles.editButton} onPress={() => onEdit(item)}>
                                 <Text style={styles.editButtonText}>Editar</Text>
@@ -96,8 +89,6 @@ const PetCard = ({
                         </View>
                     </View>
                 ) : (
-                    // GRUPO 2: ÉS VISITANTE (Vês isto)
-                    // Se NÃO és dono, o código entra aqui automaticamente
                     item.adopted ? (
                         <View style={styles.adoptedTagContainer}>
                             <Text style={styles.adoptedTagText}>⛔ Este animal já foi adotado!</Text>
@@ -105,15 +96,12 @@ const PetCard = ({
                     ) : (
                         <TouchableOpacity
                             style={styles.adoptButton}
-                            // AQUI passamos o número certo (contactPhone) em vez do item inteiro
                             onPress={() => onAdopt(contactPhone)}
                         >
                             <Text style={styles.adoptButtonText}>QUERO ADOTAR 📞</Text>
                         </TouchableOpacity>
                     )
                 )}
-                {/* --- FIM DA LÓGICA --- */}
-
             </View>
         </View>
     );
@@ -130,17 +118,20 @@ const styles = StyleSheet.create({
     name: { fontSize: 24, fontWeight: "bold", color: '#FF69B4' },
     breedText: { fontSize: 18, color: '#880E4F', marginBottom: 5 },
     customIcon: { width: 30, height: 30 },
+
     detailsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 10 },
     detailValue: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
+
+    // --- ESTILO QUE FALTAVA ---
+    detailValueFull: { fontSize: 14, color: '#880E4F', fontWeight: 'bold', width: '100%', marginTop: 5 },
+
     locationText: { fontSize: 14, color: '#880E4F', fontWeight: 'bold' },
 
-    // Botão Visitante
     adoptButton: { backgroundColor: '#FFB6C1', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15 },
     adoptButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
     adoptedTagContainer: { backgroundColor: '#A9A9A9', padding: 10, borderRadius: 8, alignItems: 'center', marginTop: 15 },
     adoptedTagText: { color: 'white', fontWeight: 'bold' },
 
-    // Botões Dono
     statusButton: { padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 15, borderWidth: 2 },
     btnMakeAdopted: { borderColor: '#4CAF50', backgroundColor: '#E8F5E9' },
     btnMakeAvailable: { borderColor: '#FF9800', backgroundColor: '#FFF3E0' },
