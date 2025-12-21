@@ -8,7 +8,8 @@ import {
     ActivityIndicator,
     TouchableOpacity,
     SafeAreaView,
-    RefreshControl
+    RefreshControl,
+    Alert
 } from "react-native";
 import { translateTemperament } from "../utils/translations";
 
@@ -175,6 +176,38 @@ export default function ExploreScreen({ navigation }) {
         }
     };
 
+    // --- FUNÇÃO PARA APAGAR POST ---
+    const handleDeletePost = async (postId) => {
+        Alert.alert(
+            "Eliminar",
+            "Tens a certeza que queres apagar esta partilha?",
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Apagar",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            // Apagar da Base de Dados
+                            await fetch(`https://petmatch-afab.restdb.io/rest/posts/${postId}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    "content-type": "application/json",
+                                    "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3",
+                                    "cache-control": "no-cache"
+                                }
+                            });
+                            // Atualizar a lista localmente
+                            setPosts(prev => prev.filter(p => p._id !== postId));
+                        } catch (error) {
+                            console.log("Erro ao apagar:", error);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const handleRefreshPosts = () => {
         setIsRefreshingPosts(true);
         fetchCommunityPosts();
@@ -203,36 +236,53 @@ export default function ExploreScreen({ navigation }) {
         </TouchableOpacity>
     );
 
-    // UI: Cartão de Comunidade
-    const renderCommunityPost = ({ item }) => (
-        <View style={styles.cardCommunity}>
-            {/* Cabeçalho: Autor e Data */}
-            <View style={styles.commHeader}>
-                <View style={styles.avatarPlaceholder}><Text>👤</Text></View>
-                <View>
-                    <Text style={styles.commAuthor}>{item.author}</Text>
-                    <Text style={styles.commDate}>{item.date}</Text>
+// UI: Cartão de Comunidade
+    const renderCommunityPost = ({ item }) => {
+        // Verificar se sou o dono do post
+        const user = AuthStore.getState().user;
+        const currentUserId = user?._id || user?.id;
+        // Compara o ID do user logado com o authorId do post
+        const isOwner = String(currentUserId) === String(item.authorId);
+
+        return (
+            <View style={styles.cardCommunity}>
+                {/* Cabeçalho: Autor, Data e Botão Apagar */}
+                <View style={styles.commHeader}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                        <View style={styles.avatarPlaceholder}><Text>👤</Text></View>
+                        <View>
+                            <Text style={styles.commAuthor}>{item.author}</Text>
+                            <Text style={styles.commDate}>{item.date}</Text>
+                        </View>
+                    </View>
+
+                    {/* SÓ MOSTRA O LIXO SE FOR O DONO */}
+                    {isOwner && (
+                        <TouchableOpacity onPress={() => handleDeletePost(item._id)}>
+                            <Text style={{fontSize: 20}}>🗑️</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Imagem Grande */}
+                <Image source={{ uri: item.image }} style={styles.commImage} resizeMode="cover" />
+
+                {/* Rodapé: Ações + Descrição */}
+                <View style={styles.commFooter}>
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity style={{marginRight: 15}}><Text style={{fontSize: 22}}>❤️</Text></TouchableOpacity>
+                        <TouchableOpacity><Text style={{fontSize: 22}}>💬</Text></TouchableOpacity>
+                    </View>
+
+                    {item.description ? (
+                        <Text style={styles.commDescription}>
+                            <Text style={{fontWeight: 'bold'}}>{item.author}</Text> {item.description}
+                        </Text>
+                    ) : null}
                 </View>
             </View>
-
-            {/* Imagem Grande */}
-            <Image source={{ uri: item.image }} style={styles.commImage} resizeMode="cover" />
-
-            {/* Rodapé: Ações + Descrição */}
-            <View style={styles.commFooter}>
-                <View style={styles.actionRow}>
-                    <TouchableOpacity style={{marginRight: 15}}><Text style={{fontSize: 22}}>❤️</Text></TouchableOpacity>
-                    <TouchableOpacity><Text style={{fontSize: 22}}>💬</Text></TouchableOpacity>
-                </View>
-
-                {item.description ? (
-                    <Text style={styles.commDescription}>
-                        <Text style={{fontWeight: 'bold'}}>{item.author}</Text> {item.description}
-                    </Text>
-                ) : null}
-            </View>
-        </View>
-    );
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
