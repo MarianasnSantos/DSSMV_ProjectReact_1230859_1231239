@@ -9,7 +9,11 @@ import {
     TouchableOpacity,
     SafeAreaView,
     RefreshControl,
-    Alert
+    Alert,
+    Modal,
+    TextInput,
+    KeyboardAvoidingView,
+    Platform
 } from "react-native";
 import { translateTemperament } from "../utils/translations";
 
@@ -39,6 +43,14 @@ export default function ExploreScreen({ navigation }) {
     const [posts, setPosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [isRefreshingPosts, setIsRefreshingPosts] = useState(false);
+
+    // --- ESTADOS: COMENTÁRIOS ---
+    const [modalVisible, setModalVisible] = useState(false);
+    const [currentPostId, setCurrentPostId] = useState(null);
+    const [commentsList, setCommentsList] = useState([]);
+    const [newComment, setNewComment] = useState("");
+    const [loadingComments, setLoadingComments] = useState(false);
+    const [user, setUser] = useState(AuthStore.getState().user);
 
     // --- CICLO DE VIDA ---
     useEffect(() => {
@@ -213,6 +225,50 @@ export default function ExploreScreen({ navigation }) {
         fetchCommunityPosts();
     };
 
+    // --- FUNÇÕES DE COMENTÁRIOS ---
+    const openComments = async (post) => {
+        setCurrentPostId(post._id);
+        setModalVisible(true);
+        setLoadingComments(true);
+        setCommentsList([]);
+
+        try {
+            // Procura comentários onde postId é igual ao ID do post
+            const query = JSON.stringify({ postId: post._id });
+            const response = await fetch(`https://petmatch-afab.restdb.io/rest/comments?q=${query}`, {
+                method: 'GET',
+                headers: { "content-type": "application/json", "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3", "cache-control": "no-cache" }
+            });
+            const data = await response.json();
+            setCommentsList(Array.isArray(data) ? data : []);
+        } catch (error) { Alert.alert("Erro", "Não foi possível carregar comentários"); }
+        finally { setLoadingComments(false); }
+    };
+
+    const handleSendComment = async () => {
+        if (newComment.trim() === "") return;
+        if (!user) return Alert.alert("Ops", "Precisas de estar logado para comentar.");
+
+        const commentData = {
+            postId: currentPostId,
+            author: user.username || user.name || "Anónimo",
+            userId: user._id || user.id,
+            text: newComment,
+            date: new Date().toLocaleDateString('pt-PT')
+        };
+
+        setCommentsList(prev => [...prev, { ...commentData, _id: Math.random().toString() }]);
+        setNewComment("");
+
+        try {
+            await fetch("https://petmatch-afab.restdb.io/rest/comments", {
+                method: "POST",
+                headers: { "content-type": "application/json", "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3" },
+                body: JSON.stringify(commentData)
+            });
+        } catch (error) { console.log("Erro ao enviar comentário"); }
+    };
+
     // ============================================================
     // (UI)
     // ============================================================
@@ -271,7 +327,10 @@ export default function ExploreScreen({ navigation }) {
                 <View style={styles.commFooter}>
                     <View style={styles.actionRow}>
                         <TouchableOpacity style={{marginRight: 15}}><Text style={{fontSize: 22}}>❤️</Text></TouchableOpacity>
-                        <TouchableOpacity><Text style={{fontSize: 22}}>💬</Text></TouchableOpacity>
+                        {}
+                        <TouchableOpacity onPress={() => openComments(item)}>
+                            <Text style={{fontSize: 22}}>💬</Text>
+                        </TouchableOpacity>
                     </View>
 
                     {item.description ? (
@@ -345,6 +404,47 @@ export default function ExploreScreen({ navigation }) {
                 </>
             )}
 
+            {/* --- MODAL DE COMENTÁRIOS --- */}
+            <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Comentários 💬</Text>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                <Text style={styles.closeBtn}>Fechar ✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {loadingComments ? (
+                            <ActivityIndicator color="#FF69B4" style={{marginTop: 20}} />
+                        ) : (
+                            <FlatList
+                                data={commentsList}
+                                keyExtractor={(item, index) => index.toString()}
+                                renderItem={({ item }) => (
+                                    <View style={styles.commentItem}>
+                                        <Text style={styles.commentAuthor}>{item.author}</Text>
+                                        <Text style={styles.commentText}>{item.text}</Text>
+                                        <Text style={styles.commentDate}>{item.date}</Text>
+                                    </View>
+                                )}
+                                ListEmptyComponent={<Text style={styles.emptyComments}>Sê o primeiro a comentar!</Text>}
+                            />
+                        )}
+
+                        <View style={styles.inputContainer}>
+                            <TextInput
+                                style={styles.input} placeholder="Escreve um comentário..."
+                                value={newComment} onChangeText={setNewComment}
+                            />
+                            <TouchableOpacity onPress={handleSendComment}>
+                                <Text style={styles.sendBtn}>Enviar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
         </SafeAreaView>
     );
 }
@@ -386,4 +486,21 @@ const styles = StyleSheet.create({
 
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
+
+    // ESTILOS DO MODAL
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '70%', padding: 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderColor: '#EEE', paddingBottom: 10 },
+    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#D81B60' },
+    closeBtn: { fontSize: 16, color: '#888' },
+
+    commentItem: { marginBottom: 15, borderBottomWidth: 1, borderColor: '#f0f0f0', paddingBottom: 5 },
+    commentAuthor: { fontWeight: 'bold', fontSize: 13, color: '#333' },
+    commentText: { fontSize: 14, color: '#555', marginVertical: 2 },
+    commentDate: { fontSize: 10, color: '#999' },
+    emptyComments: { textAlign: 'center', marginTop: 20, color: '#aaa' },
+
+    inputContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderColor: '#EEE', paddingTop: 10 },
+    input: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 15, height: 40, marginRight: 10 },
+    sendBtn: { color: '#FF69B4', fontWeight: 'bold' }
 });
