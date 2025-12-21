@@ -220,6 +220,24 @@ export default function ExploreScreen({ navigation }) {
         );
     };
 
+    // --- APAGAR COMENTÁRIO ---
+    const handleDeleteComment = async (commentId) => {
+        Alert.alert("Eliminar", "Apagar este comentário?", [
+            { text: "Cancelar" },
+            { text: "Sim", style: "destructive", onPress: async () => {
+                    try {
+                        // 1. Remove visualmente logo
+                        setCommentsList(prev => prev.filter(c => c._id !== commentId));
+
+                        // 2. Apaga da Base de Dados
+                        await fetch(`https://petmatch-afab.restdb.io/rest/comments/${commentId}`, {
+                            method: 'DELETE',
+                            headers: { "x-apikey": "a29c6a5e4f29c400c1ffac21c4c454f2af5a3" }
+                        });
+                    } catch (e) { console.log(e); }
+                }}
+        ]);
+    };
     const handleRefreshPosts = () => {
         setIsRefreshingPosts(true);
         fetchCommunityPosts();
@@ -247,14 +265,23 @@ export default function ExploreScreen({ navigation }) {
 
     const handleSendComment = async () => {
         if (newComment.trim() === "") return;
-        if (!user) return Alert.alert("Ops", "Precisas de estar logado para comentar.");
+        if (!user) return Alert.alert("Ops", "Precisas de estar logado.");
+
+        // --- FORMATAR A DATA E HORA ---
+        const now = new Date();
+        const dia = String(now.getDate()).padStart(2, '0');
+        const mes = String(now.getMonth() + 1).padStart(2, '0');
+        const hora = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const dataFormatada = `${dia}/${mes} às ${hora}:${min}`;
+        // -------------------------------------
 
         const commentData = {
             postId: currentPostId,
             author: user.username || user.name || "Anónimo",
             userId: user._id || user.id,
             text: newComment,
-            date: new Date().toLocaleDateString('pt-PT')
+            date: dataFormatada
         };
 
         setCommentsList(prev => [...prev, { ...commentData, _id: Math.random().toString() }]);
@@ -404,10 +431,20 @@ export default function ExploreScreen({ navigation }) {
                 </>
             )}
 
-            {/* --- MODAL DE COMENTÁRIOS --- */}
-            <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+            {/* --- MODAL DE COMENTÁRIOS (CORRIGIDO) --- */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlay}
+                >
                     <View style={styles.modalContent}>
+
+                        {/* 1. Header com botão FECHAR */}
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Comentários 💬</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -415,36 +452,57 @@ export default function ExploreScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
 
+                        {/* 2. Lista de Comentários */}
                         {loadingComments ? (
                             <ActivityIndicator color="#FF69B4" style={{marginTop: 20}} />
                         ) : (
                             <FlatList
                                 data={commentsList}
                                 keyExtractor={(item, index) => index.toString()}
-                                renderItem={({ item }) => (
-                                    <View style={styles.commentItem}>
-                                        <Text style={styles.commentAuthor}>{item.author}</Text>
-                                        <Text style={styles.commentText}>{item.text}</Text>
-                                        <Text style={styles.commentDate}>{item.date}</Text>
-                                    </View>
-                                )}
+                                renderItem={({ item }) => {
+                                    // Verifica se o comentário é meu
+                                    const isMyComment = String(user?._id || user?.id) === String(item.userId);
+
+                                    return (
+                                        <View style={styles.commentItem}>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Text style={styles.commentAuthor}>{item.author}</Text>
+                                                <Text style={styles.commentDate}>{item.date}</Text>
+                                            </View>
+
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                                                <Text style={styles.commentText}>{item.text}</Text>
+
+                                                {/* Botão de Apagar */}
+                                                {isMyComment && (
+                                                    <TouchableOpacity onPress={() => handleDeleteComment(item._id)}>
+                                                        <Text style={{fontSize: 14, color: '#FF0000'}}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        </View>
+                                    );
+                                }}
                                 ListEmptyComponent={<Text style={styles.emptyComments}>Sê o primeiro a comentar!</Text>}
                             />
                         )}
 
+                        {/* 3. Área de Escrever (INPUT) */}
                         <View style={styles.inputContainer}>
                             <TextInput
-                                style={styles.input} placeholder="Escreve um comentário..."
-                                value={newComment} onChangeText={setNewComment}
+                                style={styles.input}
+                                placeholder="Escreve um comentário..."
+                                value={newComment}
+                                onChangeText={setNewComment}
                             />
                             <TouchableOpacity onPress={handleSendComment}>
                                 <Text style={styles.sendBtn}>Enviar</Text>
                             </TouchableOpacity>
                         </View>
+
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
-
         </SafeAreaView>
     );
 }
