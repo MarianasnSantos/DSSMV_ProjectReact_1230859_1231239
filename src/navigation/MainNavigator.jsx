@@ -14,20 +14,20 @@ import HomeScreen from '../screens/HomeScreen';
 import AddAnimalScreen from "../screens/AddAnimalScreen";
 import FavoritesScreen from '../screens/FavoriteScreen';
 
+// ⚠️ CORREÇÃO AQUI: Tem de ser '../screens/' e não './screens/'
+import CreatePostScreen from "../screens/CreatePostScreen";
+
 const MainStack = createStackNavigator();
 
 const MainNavigator = () => {
-    // 1. Estado local para refletir o utilizador atual no Header
     const [user, setUser] = useState(AuthStore.getState().user);
 
-    // 2. Listener para atualizar o Header se o nome mudar ou houver logout
     useEffect(() => {
         const handleChange = () => setUser(AuthStore.getState().user);
         AuthStore.addChangeListener(handleChange);
         return () => AuthStore.removeChangeListener(handleChange);
     }, []);
 
-    // 3. Função de Logout com Confirmação
     const handleLogout = () => {
         Alert.alert("Sair", "Deseja terminar a sessão?", [
             { text: "Cancelar", style: "cancel" },
@@ -52,16 +52,10 @@ const MainNavigator = () => {
                 name="Opcoes"
                 component={OpcoesScreen}
                 options={{
-                    // ⭐️ Título dinâmico à esquerda com o nome do user
                     headerTitle: user ? `Olá, ${user.username}` : 'Menu Principal',
                     headerTitleAlign: 'left',
-
-                    // ⭐️ Botão de Terminar Sessão à direita
                     headerRight: () => (
-                        <TouchableOpacity
-                            onPress={handleLogout}
-                            style={styles.headerLogoutBtn}
-                        >
+                        <TouchableOpacity onPress={handleLogout} style={styles.headerLogoutBtn}>
                             <Text style={styles.logoutText}>Sair</Text>
                         </TouchableOpacity>
                     ),
@@ -88,6 +82,15 @@ const MainNavigator = () => {
                 component={AddAnimalScreen}
                 options={{ title: "Adicionar Animal" }}
             />
+
+            {}
+            <MainStack.Screen
+                name="CreatePost"
+                component={CreatePostScreen}
+                options={{ title: "Nova Publicação" }}
+            />
+            {/* ------------------------------------------- */}
+
             <MainStack.Screen
                 name="Home"
                 component={HomeScreen}
@@ -97,11 +100,10 @@ const MainNavigator = () => {
     );
 };
 
-// Estilos para o botão de Logout no Header
 const styles = StyleSheet.create({
     headerLogoutBtn: {
         marginRight: 15,
-        backgroundColor: 'rgba(255,255,255,0.2)', // Efeito de transparência
+        backgroundColor: 'rgba(255,255,255,0.2)',
         paddingHorizontal: 12,
         paddingVertical: 5,
         borderRadius: 15,
