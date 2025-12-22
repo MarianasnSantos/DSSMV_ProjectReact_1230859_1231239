@@ -1,19 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
-    View,
-    Text,
-    FlatList,
-    Image,
-    StyleSheet,
-    ActivityIndicator,
-    TouchableOpacity,
-    SafeAreaView,
-    RefreshControl,
-    Alert,
-    Modal,
-    TextInput,
-    KeyboardAvoidingView,
-    Platform
+    View, Text, FlatList, Image, StyleSheet, ActivityIndicator, TouchableOpacity,
+    SafeAreaView, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform
 } from "react-native";
 import { translateTemperament } from "../utils/translations";
 
@@ -34,9 +22,10 @@ const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 export default function ExploreScreen({ navigation }) {
 
     // --- ESTADOS GERAIS ---
-    const [activeTab, setActiveTab] = useState('RACAS'); // 'RACAS' ou 'COMUNIDADE'
+    const [activeTab, setActiveTab] = useState('RACAS');
     const [favorites, setFavorites] = useState(AuthStore.getState().favorites || []);
     const [isLoggedIn, setIsLoggedIn] = useState(AuthStore.getState().isLoggedIn);
+    const [user, setUser] = useState(AuthStore.getState().user);
 
     // --- ESTADOS: RAÇAS ---
     const [breeds, setBreeds] = useState([]);
@@ -44,20 +33,48 @@ export default function ExploreScreen({ navigation }) {
     const [loadingMoreBreeds, setLoadingMoreBreeds] = useState(false);
     const [page, setPage] = useState(0);
     const [isRefreshingBreeds, setIsRefreshingBreeds] = useState(false);
-    const [optimisticChanges, setOptimisticChanges] = useState({});
 
     // --- ESTADOS: COMUNIDADE ---
     const [posts, setPosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [isRefreshingPosts, setIsRefreshingPosts] = useState(false);
+    const [commentCounts, setCommentCounts] = useState({});
 
-    // --- ESTADOS: COMENTÁRIOS ---
+    // --- ESTADOS: COMENTÁRIOS & EDIÇÃO ---
     const [modalVisible, setModalVisible] = useState(false);
     const [currentPostId, setCurrentPostId] = useState(null);
     const [commentsList, setCommentsList] = useState([]);
     const [newComment, setNewComment] = useState("");
     const [loadingComments, setLoadingComments] = useState(false);
-    const [user, setUser] = useState(AuthStore.getState().user);
+    const [editingCommentId, setEditingCommentId] = useState(null);
+
+
+
+    const formatCommentDate = (dateVal) => {
+        if (!dateVal) return "Agora";
+
+        // 1. Se for o formato com horas (ex: "22/12 às 18:00"), exibe direto
+        if (typeof dateVal === 'string' && dateVal.includes(' às ')) {
+            return dateVal;
+        }
+
+        // 2. Se for o formato dos teus posts (ex: "22/12/2025")
+        // Vamos apenas tirar o /2025 para ficar mais bonito no feed
+        if (typeof dateVal === 'string' && dateVal.includes('/2025')) {
+            return dateVal.replace('/2025', '');
+        }
+
+        // 3. Fallback: Tenta converter se for um ISO ou objeto Date
+        const date = new Date(dateVal);
+        if (isNaN(date.getTime()) || date.getFullYear() <= 1970) {
+            // Se for um texto qualquer que não reconhecemos, mostra o texto tal como está
+            return typeof dateVal === 'string' ? dateVal : "Recentemente";
+        }
+
+        const dia = String(date.getDate()).padStart(2, '0');
+        const mes = String(date.getMonth() + 1).padStart(2, '0');
+        return `${dia}/${mes}`;
+    };
 
     // --- CICLO DE VIDA ---
     useEffect(() => {
@@ -68,24 +85,10 @@ export default function ExploreScreen({ navigation }) {
             setUser(state.user);
         };
         AuthStore.addChangeListener(onAuthChange);
-
         fetchBreeds(0);
         fetchCommunityPosts();
-
         return () => AuthStore.removeChangeListener(onAuthChange);
     }, []);
-
-    // Limpeza otimista favoritos
-    useEffect(() => {
-        setOptimisticChanges(prev => {
-            const next = { ...prev };
-            Object.keys(prev).forEach(id => {
-                if (favorites.includes(id) === prev[id]) delete next[id];
-            });
-            return next;
-        });
-    }, [favorites]);
-
 
     // ============================================================
     // 1. LÓGICA DA ABA "RAÇAS"
@@ -120,15 +123,9 @@ export default function ExploreScreen({ navigation }) {
                     };
                 })
             );
-
             setBreeds(prev => shouldRefresh ? breedsWithImages : [...prev, ...breedsWithImages]);
-        } catch (error) {
-            console.log("Erro API Raças:", error);
-        } finally {
-            setLoadingBreeds(false);
-            setLoadingMoreBreeds(false);
-            setIsRefreshingBreeds(false);
-        }
+        } catch (error) { console.log("Erro API Raças:", error); }
+        finally { setLoadingBreeds(false); setLoadingMoreBreeds(false); setIsRefreshingBreeds(false); }
     };
 
     const handleLoadMoreBreeds = () => {
@@ -152,17 +149,9 @@ export default function ExploreScreen({ navigation }) {
     const renderFavoriteIcon = (item) => {
         if (!isLoggedIn) return null;
         const favId = item.id.toString();
-        const isCurrentlyInStore = favorites.includes(favId);
-        const optimistic = optimisticChanges[favId];
-        const isFav = optimistic !== undefined ? optimistic : isCurrentlyInStore;
-
-        const toggle = () => {
-            setOptimisticChanges(prev => ({ ...prev, [favId]: !isFav }));
-            PetActions.toggleFavorite(favId);
-        };
-
+        const isFav = favorites.includes(favId);
         return (
-            <TouchableOpacity onPress={toggle}>
+            <TouchableOpacity onPress={() => PetActions.toggleFavorite(favId)}>
                 <Image
                     source={isFav ? STAR_FILLED : STAR_OUTLINE}
                     style={[styles.customIcon, !isFav && { tintColor: '#FFC0CB' }]}
@@ -171,25 +160,38 @@ export default function ExploreScreen({ navigation }) {
         );
     };
 
+    const renderBreedItem = ({ item }) => (
+        <TouchableOpacity style={styles.cardBreed} onPress={() => handleGoToFeed(item)} activeOpacity={0.9}>
+            <Image source={{ uri: item.imageUrl }} style={styles.imageBreed} />
+            <View style={styles.textContainer}>
+                {/* Correção Imagem 2: Removida a 'div' que causava o erro de renderização */}
+                <View style={styles.headerContainer}>
+                    <Text style={styles.nameBreed}>{item.name}</Text>
+                    {renderFavoriteIcon(item)}
+                </View>
+                <Text style={styles.temperament}>{item.translatedTemperament || "Temperamento calmo"}</Text>
+                <View style={styles.ctaContainer}><Text style={styles.ctaText}>🔍 Ver animais parecidos</Text></View>
+            </View>
+        </TouchableOpacity>
+    );
 
     // ============================================================
     // 2. LÓGICA DA ABA "COMUNIDADE"
     // ============================================================
     const fetchCommunityPosts = async () => {
         setLoadingPosts(true);
-
         try {
             const response = await fetch(`${RESTDB_BASE_URL}/posts`, {
                 method: 'GET',
-                headers: {
-                    "content-type": "application/json",
-                    "x-apikey": RESTDB_API_KEY,
-                    "cache-control": "no-cache"
-                }
+                headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY, "cache-control": "no-cache" }
             });
-
             const data = await response.json();
-            setPosts(Array.isArray(data) ? data.reverse() : []);
+            const postsList = Array.isArray(data) ? data.reverse() : [];
+            setPosts(postsList);
+
+            postsList.forEach(post => {
+                fetchCommentCount(post._id);
+            });
 
         } catch (error) {
             console.log("Erro ao carregar posts:", error);
@@ -199,171 +201,154 @@ export default function ExploreScreen({ navigation }) {
         }
     };
 
-    // --- FUNÇÃO PARA APAGAR POST ---
-    const handleDeletePost = async (postId) => {
-        Alert.alert(
-            "Eliminar",
-            "Tens a certeza que queres apagar esta partilha?",
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Apagar",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            // 👇 USA VARIÁVEIS SEGURAS
-                            await fetch(`${RESTDB_BASE_URL}/posts/${postId}`, {
-                                method: 'DELETE',
-                                headers: {
-                                    "content-type": "application/json",
-                                    "x-apikey": RESTDB_API_KEY,
-                                    "cache-control": "no-cache"
-                                }
-                            });
-                            setPosts(prev => prev.filter(p => p._id !== postId));
-                        } catch (error) {
-                            console.log("Erro ao apagar:", error);
-                        }
-                    }
-                }
-            ]
-        );
+    const fetchCommentCount = async (postId) => {
+        try {
+            // Criamos a query para contar quantos comentários têm este postId
+            const query = JSON.stringify({ postId: postId });
+            const response = await fetch(`${RESTDB_BASE_URL}/comments?q=${query}&count=true`, {
+                headers: { "x-apikey": RESTDB_API_KEY }
+            });
+            const data = await response.json();
+
+            // Atualiza o estado com o valor real vindo da base de dados
+            setCommentCounts(prev => ({
+                ...prev,
+                [postId]: data.count || 0
+            }));
+        } catch (e) {
+            console.log("Erro na contagem:", e);
+        }
     };
 
-    // --- APAGAR COMENTÁRIO ---
-    const handleDeleteComment = async (commentId) => {
-        Alert.alert("Eliminar", "Apagar este comentário?", [
-            { text: "Cancelar" },
-            { text: "Sim", style: "destructive", onPress: async () => {
-                    try {
-                        setCommentsList(prev => prev.filter(c => c._id !== commentId));
+    const handleLikePost = async (post) => {
+        if (!isLoggedIn) return Alert.alert("Aviso", "Logue-se para dar like! ❤️");
+        const updatedPosts = posts.map(p => p._id === post._id ? { ...p, likes: (p.likes || 0) + 1 } : p);
+        setPosts(updatedPosts);
+        try {
+            await fetch(`${RESTDB_BASE_URL}/posts/${post._id}`, {
+                method: 'PUT',
+                headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY },
+                body: JSON.stringify({ likes: (post.likes || 0) + 1 })
+            });
+        } catch (error) { console.log(error); }
+    };
 
-                        await fetch(`${RESTDB_BASE_URL}/comments/${commentId}`, {
+    const handleDeletePost = async (postId) => {
+        Alert.alert("Eliminar", "Apagar esta partilha?", [
+            { text: "Cancelar" },
+            { text: "Apagar", style: "destructive", onPress: async () => {
+                    try {
+                        await fetch(`${RESTDB_BASE_URL}/posts/${postId}`, {
                             method: 'DELETE',
                             headers: { "x-apikey": RESTDB_API_KEY }
                         });
+                        setPosts(prev => prev.filter(p => p._id !== postId));
                     } catch (e) { console.log(e); }
                 }}
         ]);
     };
 
-    const handleRefreshPosts = () => {
-        setIsRefreshingPosts(true);
-        fetchCommunityPosts();
-    };
-
-    // --- FUNÇÕES DE COMENTÁRIOS ---
+    // ============================================================
+    // 3. LÓGICA DE COMENTÁRIOS (COM EDIÇÃO)
+    // ============================================================
     const openComments = async (post) => {
         setCurrentPostId(post._id);
         setModalVisible(true);
         setLoadingComments(true);
-        setCommentsList([]);
-
+        setEditingCommentId(null);
+        setNewComment("");
         try {
             const query = JSON.stringify({ postId: post._id });
-            // 👇 USA VARIÁVEIS SEGURAS
             const response = await fetch(`${RESTDB_BASE_URL}/comments?q=${query}`, {
-                method: 'GET',
-                headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY, "cache-control": "no-cache" }
+                headers: { "x-apikey": RESTDB_API_KEY, "cache-control": "no-cache" }
             });
             const data = await response.json();
             setCommentsList(Array.isArray(data) ? data : []);
-        } catch (error) { Alert.alert("Erro", "Não foi possível carregar comentários"); }
+        } catch (e) { console.log(e); }
         finally { setLoadingComments(false); }
     };
 
     const handleSendComment = async () => {
-        if (newComment.trim() === "") return;
-        if (!user) return Alert.alert("Ops", "Precisas de estar logado.");
+        if (newComment.trim() === "" || !user) return;
 
+        // Correção Imagem 3: Gera a data manualmente para evitar o formato 1970
         const now = new Date();
-        const dia = String(now.getDate()).padStart(2, '0');
-        const mes = String(now.getMonth() + 1).padStart(2, '0');
-        const hora = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
-        const dataFormatada = `${dia}/${mes} às ${hora}:${min}`;
+        const dataString = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')} às ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-        const commentData = {
-            postId: currentPostId,
-            author: user.username || user.name || "Anónimo",
-            userId: user._id || user.id,
-            text: newComment,
-            date: dataFormatada
-        };
-
-        setCommentsList(prev => [...prev, { ...commentData, _id: Math.random().toString() }]);
-        setNewComment("");
-
-        try {
-
-            await fetch(`${RESTDB_BASE_URL}/comments`, {
-                method: "POST",
-                headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY },
-                body: JSON.stringify(commentData)
-            });
-        } catch (error) { console.log("Erro ao enviar comentário"); }
+        if (editingCommentId) {
+            try {
+                await fetch(`${RESTDB_BASE_URL}/comments/${editingCommentId}`, {
+                    method: "PUT",
+                    headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY },
+                    body: JSON.stringify({ text: newComment, date: dataString + " (editado)" })
+                });
+                setCommentsList(prev => prev.map(c =>
+                    c._id === editingCommentId ? { ...c, text: newComment, date: dataString + " (editado)" } : c
+                ));
+                setEditingCommentId(null);
+                setNewComment("");
+            } catch (e) { Alert.alert("Erro", "Falha ao editar."); }
+        } else {
+            const commentData = {
+                postId: currentPostId,
+                author: user.username || user.name,
+                userId: user._id || user.id,
+                text: newComment,
+                date: dataString
+            };
+            try {
+                const res = await fetch(`${RESTDB_BASE_URL}/comments`, {
+                    method: "POST",
+                    headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY },
+                    body: JSON.stringify(commentData)
+                });
+                const saved = await res.json();
+                setCommentsList(prev => [...prev, saved]);
+                setNewComment("");
+                setCommentCounts(prev => ({ ...prev, [currentPostId]: (prev[currentPostId] || 0) + 1 }));
+            } catch (e) { console.log(e); }
+        }
     };
 
-    // ============================================================
-    // (UI)
-    // ============================================================
+    const handleDeleteComment = async (commentId) => {
+        Alert.alert("Eliminar", "Apagar comentário?", [
+            { text: "Não" },
+            { text: "Sim", style: "destructive", onPress: async () => {
+                    setCommentsList(prev => prev.filter(c => c._id !== commentId));
+                    setCommentCounts(prev => ({ ...prev, [currentPostId]: Math.max(0, (prev[currentPostId] || 1) - 1) }));
+                    await fetch(`${RESTDB_BASE_URL}/comments/${commentId}`, { method: 'DELETE', headers: { "x-apikey": RESTDB_API_KEY } });
+                }}
+        ]);
+    };
 
-    // UI: Cartão de Raça
-    const renderBreedItem = ({ item }) => (
-        <TouchableOpacity style={styles.cardBreed} onPress={() => handleGoToFeed(item)} activeOpacity={0.9}>
-            <Image source={{ uri: item.imageUrl }} style={styles.imageBreed} />
-            <View style={styles.textContainer}>
-                <View style={styles.headerContainer}>
-                    <Text style={styles.nameBreed}>{item.name}</Text>
-                    {renderFavoriteIcon(item)}
-                </View>
-                <Text style={styles.temperament}>
-                    {item.translatedTemperament || "Temperamento calmo"}
-                </Text>
-                <View style={styles.ctaContainer}>
-                    <Text style={styles.ctaText}>🔍 Ver animais parecidos</Text>
-                </View>
-            </View>
-        </TouchableOpacity>
-    );
-
-// UI: Cartão de Comunidade
     const renderCommunityPost = ({ item }) => {
-        const user = AuthStore.getState().user;
-        const currentUserId = user?._id || user?.id;
-        const isOwner = String(currentUserId) === String(item.authorId);
-
+        const isOwner = String(user?._id || user?.id) === String(item.authorId);
         return (
             <View style={styles.cardCommunity}>
                 <View style={styles.commHeader}>
-                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                         <View style={styles.avatarPlaceholder}><Text>👤</Text></View>
                         <View>
                             <Text style={styles.commAuthor}>{item.author}</Text>
-                            <Text style={styles.commDate}>{item.date}</Text>
+                            <Text style={styles.commDate}>{formatCommentDate(item.date)}</Text>
                         </View>
                     </View>
-                    {isOwner && (
-                        <TouchableOpacity onPress={() => handleDeletePost(item._id)}>
-                            <Text style={{fontSize: 20}}>🗑️</Text>
-                        </TouchableOpacity>
-                    )}
+                    {isOwner && <TouchableOpacity onPress={() => handleDeletePost(item._id)}><Text style={{ fontSize: 20 }}>🗑️</Text></TouchableOpacity>}
                 </View>
-
                 <Image source={{ uri: item.image }} style={styles.commImage} resizeMode="cover" />
-
                 <View style={styles.commFooter}>
                     <View style={styles.actionRow}>
-                        <TouchableOpacity style={{marginRight: 15}}><Text style={{fontSize: 22}}>❤️</Text></TouchableOpacity>
-                        <TouchableOpacity onPress={() => openComments(item)}>
-                            <Text style={{fontSize: 22}}>💬</Text>
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginRight: 15 }} onPress={() => handleLikePost(item)}>
+                            <Text style={{ fontSize: 22 }}>❤️</Text>
+                            <Text style={{ marginLeft: 5, fontWeight: 'bold', color: '#D81B60' }}>{item.likes || 0}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => openComments(item)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 22 }}>💬</Text>
+                            <Text style={{ marginLeft: 5, fontWeight: 'bold', color: '#555' }}>{commentCounts[item._id] || 0}</Text>
                         </TouchableOpacity>
                     </View>
-
                     {item.description ? (
-                        <Text style={styles.commDescription}>
-                            <Text style={{fontWeight: 'bold'}}>{item.author}</Text> {item.description}
-                        </Text>
+                        <Text style={styles.commDescription}><Text style={{ fontWeight: 'bold' }}>{item.author}</Text> {item.description}</Text>
                     ) : null}
                 </View>
             </View>
@@ -372,7 +357,6 @@ export default function ExploreScreen({ navigation }) {
 
     return (
         <SafeAreaView style={styles.container}>
-
             <View style={styles.tabsContainer}>
                 <TouchableOpacity style={[styles.tabButton, activeTab === 'RACAS' && styles.tabButtonActive]} onPress={() => setActiveTab('RACAS')}>
                     <Text style={[styles.tabText, activeTab === 'RACAS' && styles.tabTextActive]}>🐕 Explorar Raças</Text>
@@ -382,83 +366,47 @@ export default function ExploreScreen({ navigation }) {
                 </TouchableOpacity>
             </View>
 
-            {activeTab === 'RACAS' && (
-                <FlatList
-                    data={breeds}
-                    keyExtractor={(item, index) => `breed-${item.id}-${index}`}
-                    renderItem={renderBreedItem}
-                    onRefresh={handleRefreshBreeds}
-                    refreshing={isRefreshingBreeds}
-                    onEndReached={handleLoadMoreBreeds}
-                    onEndReachedThreshold={0.5}
-                    ListEmptyComponent={loadingBreeds && <ActivityIndicator style={styles.centerLoader} color="#D81B60" />}
-                    ListFooterComponent={loadingMoreBreeds && <ActivityIndicator style={{padding: 20}} color="#D81B60" />}
-                />
-            )}
-
-            {activeTab === 'COMUNIDADE' && (
+            {activeTab === 'RACAS' ? (
+                <FlatList data={breeds} keyExtractor={(item) => item.id.toString()} renderItem={renderBreedItem} onRefresh={handleRefreshBreeds} refreshing={isRefreshingBreeds} onEndReached={handleLoadMoreBreeds} />
+            ) : (
                 <>
-                    <FlatList
-                        data={posts}
-                        keyExtractor={(item) => `post-${item._id || item.id || Math.random()}`}
-                        renderItem={renderCommunityPost}
-                        onRefresh={handleRefreshPosts}
-                        refreshing={isRefreshingPosts}
-                        ListEmptyComponent={loadingPosts ? <ActivityIndicator style={styles.centerLoader} color="#FF69B4" size="large" /> : <Text style={styles.emptyText}>Sem partilhas ainda. Sê o primeiro!</Text>}
-                    />
-                    <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}>
-                        <Text style={styles.fabText}>+</Text>
-                    </TouchableOpacity>
+                    <FlatList data={posts} keyExtractor={(item) => item._id} renderItem={renderCommunityPost} onRefresh={fetchCommunityPosts} refreshing={isRefreshingPosts} />
+                    <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}><Text style={styles.fabText}>+</Text></TouchableOpacity>
                 </>
             )}
 
-            <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+            <Modal animationType="slide" transparent={true} visible={modalVisible}>
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Comentários 💬</Text>
-                            <TouchableOpacity onPress={() => setModalVisible(false)}>
-                                <Text style={styles.closeBtn}>Fechar ✕</Text>
-                            </TouchableOpacity>
+                            <Text style={styles.modalTitle}>{editingCommentId ? "Editar Comentário ✏️" : "Comentários 💬"}</Text>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}><Text style={styles.closeBtn}>Fechar ✕</Text></TouchableOpacity>
                         </View>
-
-                        {loadingComments ? (
-                            <ActivityIndicator color="#FF69B4" style={{marginTop: 20}} />
-                        ) : (
-                            <FlatList
-                                data={commentsList}
-                                keyExtractor={(item, index) => index.toString()}
-                                renderItem={({ item }) => {
-                                    const isMyComment = String(user?._id || user?.id) === String(item.userId);
-                                    return (
-                                        <View style={styles.commentItem}>
-                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                                <Text style={styles.commentAuthor}>{item.author}</Text>
-                                                <Text style={styles.commentDate}>{item.date}</Text>
+                        <FlatList data={commentsList} keyExtractor={(item, index) => index.toString()} renderItem={({ item }) => {
+                            const isMyComment = String(user?._id || user?.id) === String(item.userId);
+                            return (
+                                <View style={styles.commentItem}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                        <Text style={styles.commentAuthor}>{item.author}</Text>
+                                        {/* Fallback Imagem 3: Corrige visualmente se a data for 1970 */}
+                                        <Text style={styles.commentDate}>{formatCommentDate(item.date)}</Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Text style={styles.commentText}>{item.text}</Text>
+                                        {isMyComment && (
+                                            <View style={{ flexDirection: 'row', gap: 15 }}>
+                                                <TouchableOpacity onPress={() => {setNewComment(item.text); setEditingCommentId(item._id);}}><Text>✏️</Text></TouchableOpacity>
+                                                <TouchableOpacity onPress={() => handleDeleteComment(item._id)}><Text>🗑️</Text></TouchableOpacity>
                                             </View>
-                                            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                                                <Text style={styles.commentText}>{item.text}</Text>
-                                                {isMyComment && (
-                                                    <TouchableOpacity onPress={() => handleDeleteComment(item._id)}>
-                                                        <Text style={{fontSize: 14, color: '#FF0000'}}>🗑️</Text>
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
-                                        </View>
-                                    );
-                                }}
-                                ListEmptyComponent={<Text style={styles.emptyComments}>Sê o primeiro a comentar!</Text>}
-                            />
-                        )}
-
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={styles.input} placeholder="Escreve um comentário..."
-                                value={newComment} onChangeText={setNewComment}
-                            />
-                            <TouchableOpacity onPress={handleSendComment}>
-                                <Text style={styles.sendBtn}>Enviar</Text>
-                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
+                            );
+                        }} />
+                        <View style={[styles.inputContainer, editingCommentId && { borderColor: '#FF69B4', borderWidth: 1 }]}>
+                            <TextInput style={styles.input} placeholder="Escreve algo..." value={newComment} onChangeText={setNewComment} />
+                            <TouchableOpacity onPress={handleSendComment}><Text style={styles.sendBtn}>{editingCommentId ? "GUARDAR" : "Enviar"}</Text></TouchableOpacity>
+                            {editingCommentId && <TouchableOpacity onPress={() => {setEditingCommentId(null); setNewComment("");}}><Text style={{marginLeft: 10, color: 'red'}}>✕</Text></TouchableOpacity>}
                         </View>
                     </View>
                 </KeyboardAvoidingView>
@@ -474,8 +422,6 @@ const styles = StyleSheet.create({
     tabButtonActive: { borderBottomColor: '#FF69B4', backgroundColor: '#FFF0F5' },
     tabText: { fontSize: 15, fontWeight: 'bold', color: '#999' },
     tabTextActive: { color: '#FF69B4' },
-    centerLoader: { marginTop: 50 },
-    emptyText: { textAlign: 'center', marginTop: 50, color: '#888', fontSize: 16 },
     cardBreed: { backgroundColor: "#FFE4E1", margin: 15, borderRadius: 20, overflow: "hidden", elevation: 4 },
     imageBreed: { width: "100%", height: 220 },
     textContainer: { padding: 15 },
@@ -485,27 +431,26 @@ const styles = StyleSheet.create({
     temperament: { fontSize: 14, color: "#880E4F", marginTop: 5 },
     ctaContainer: { marginTop: 15, backgroundColor: '#FF69B4', padding: 10, borderRadius: 10, alignSelf: 'flex-start' },
     ctaText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
-    cardCommunity: { backgroundColor: '#FFF', marginBottom: 15, marginHorizontal: 0, elevation: 2 },
+    cardCommunity: { backgroundColor: '#FFF', marginBottom: 15, elevation: 2 },
     commHeader: { flexDirection: 'row', alignItems: 'center', padding: 10 },
     avatarPlaceholder: { width: 35, height: 35, borderRadius: 20, backgroundColor: '#EEE', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-    commAuthor: { fontWeight: 'bold', color: '#000', fontSize: 14 },
+    commAuthor: { fontWeight: 'bold', fontSize: 14 },
     commDate: { color: '#888', fontSize: 11 },
-    commImage: { width: '100%', height: 350, backgroundColor: '#f0f0f0' },
+    commImage: { width: '100%', height: 350 },
     commFooter: { padding: 10 },
     actionRow: { flexDirection: 'row', marginBottom: 8 },
-    commDescription: { color: '#333', fontSize: 14, lineHeight: 20 },
+    commDescription: { color: '#333', fontSize: 14 },
     fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: '#FF69B4', justifyContent: 'center', alignItems: 'center', elevation: 5 },
     fabText: { color: '#fff', fontSize: 30, fontWeight: 'bold' },
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '70%', padding: 20 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderColor: '#EEE', paddingBottom: 10 },
+    modalContent: { backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '75%', padding: 20 },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#D81B60' },
-    closeBtn: { fontSize: 16, color: '#888' },
+    closeBtn: { color: '#888' },
     commentItem: { marginBottom: 15, borderBottomWidth: 1, borderColor: '#f0f0f0', paddingBottom: 5 },
-    commentAuthor: { fontWeight: 'bold', fontSize: 13, color: '#333' },
-    commentText: { fontSize: 14, color: '#555', marginVertical: 2 },
+    commentAuthor: { fontWeight: 'bold', fontSize: 13 },
+    commentText: { fontSize: 14, color: '#555', marginTop: 2 },
     commentDate: { fontSize: 10, color: '#999' },
-    emptyComments: { textAlign: 'center', marginTop: 20, color: '#aaa' },
     inputContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, borderTopWidth: 1, borderColor: '#EEE', paddingTop: 10 },
     input: { flex: 1, backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 15, height: 40, marginRight: 10 },
     sendBtn: { color: '#FF69B4', fontWeight: 'bold' }
