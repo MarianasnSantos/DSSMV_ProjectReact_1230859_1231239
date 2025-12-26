@@ -1,21 +1,21 @@
-
-
 import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
     TextInput,
-    Button,
+    TouchableOpacity,
     StyleSheet,
     Alert,
     ActivityIndicator
 } from 'react-native';
 
 // IMPORTAÇÕES FLUX
-import AuthStore from '../stores/AuthStore'; // O Store que mantém o estado de login/registo
-import { UserActions } from '../actions/UserActions'; // A Action que dispara o registo
+import AuthStore from '../stores/AuthStore';
+import { UserActions } from '../actions/UserActions';
 
-// Hook Customizado para integração com o AuthStore (reutilizado do LoginScreen)
+import { theme } from '../styles/theme';
+
+
 function useAuthStoreState() {
     const [state, setState] = useState(AuthStore.getState());
 
@@ -31,40 +31,30 @@ function useAuthStoreState() {
     return state;
 }
 
-
-// ⚠️ Removemos a interface Props e a tipagem React.FC
 const RegisterScreen = ({ navigation }) => {
     const [username, setUsername] = useState('');
 
-    // ✅ Obtemos o estado global do Store (incluindo loading e error)
+    // Obtemos o estado global do Store
     const { loading, error, isLoggedIn } = useAuthStoreState();
 
-    // --- Função de Validação (Mantida localmente) ---
     const validateUsername = (input) => {
-        // Remove espaços e verifica se já está em minúsculas
         if (input.includes(' ') || input !== input.toLowerCase()) {
             return false;
         }
         return true;
     };
 
-    // ------------------------------------------------------------------
-    // Efeito para REAGIR ao sucesso ou falha do Store
-    // ------------------------------------------------------------------
     useEffect(() => {
         if (error) {
-            // Reage ao erro vindo do Store
             Alert.alert("Erro de Registo", error);
         }
 
         if (isLoggedIn) {
-            // Se o registo foi um sucesso e o utilizador foi logado automaticamente
             Alert.alert("Sucesso", `Bem-vindo(a), ${username}! Registo concluído.`);
-            navigation.navigate('Login'); // Redireciona para o Login
+            navigation.navigate('Login');
         }
-    }, [error, isLoggedIn]); // Dependências do estado do Store
+    }, [error, isLoggedIn, navigation, username]);
 
-    // --- Função Principal de Registo (Disparando a Action) ---
     const handleRegister = async () => {
         const trimmedUsername = username.trim();
 
@@ -78,46 +68,113 @@ const RegisterScreen = ({ navigation }) => {
             return;
         }
 
-        // ✅ Ação Flux: Dispara o processo de registo.
-        // A lógica de API, loading e try/catch está AGORA no UserActions/AuthStore.
         UserActions.register({ username: trimmedUsername });
     };
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Criar Conta PetMatch 🐾</Text>
+            <Text style={styles.title}>Criar Conta 🐾</Text>
+            <Text style={styles.subtitle}>Junta-te à comunidade PetMatch</Text>
 
             <TextInput
                 style={styles.input}
-                placeholder="Nome de Utilizador (só minúsculas, sem espaços)"
+                placeholder="Nome de Utilizador (só minúsculas)"
+                placeholderTextColor={theme.colors.textPlaceholder}
                 value={username}
-                onChangeText={(text) => setUsername(text.toLowerCase())} // Normaliza para minúsculas
+                onChangeText={(text) => setUsername(text.toLowerCase())}
                 autoCapitalize="none"
-                editable={!loading} // Usa o estado 'loading' do Store
+                editable={!loading}
             />
 
-            <Button
-                title={loading ? "A registar..." : "Registar"}
+            {/* Botão de Registo (Rosa Choque) */}
+            <TouchableOpacity
+                style={styles.button}
                 onPress={handleRegister}
                 disabled={loading}
-                color="#f3b4b4"
-            />
-            {loading && <ActivityIndicator size="small" color="#f3b4b4" style={{ marginTop: 10 }} />}
+            >
+                {loading ? (
+                    <ActivityIndicator color={theme.colors.white} />
+                ) : (
+                    <Text style={styles.buttonText}>Registar</Text>
+                )}
+            </TouchableOpacity>
 
-            <Button
-                title="Voltar ao Login"
+            {/* Botão Voltar (Link) */}
+            <TouchableOpacity
+                style={styles.linkButton}
                 onPress={() => navigation.goBack()}
-                color="#ccc"
                 disabled={loading}
-            />
+            >
+                <Text style={styles.linkText}>Já tens conta? Voltar ao Login</Text>
+            </TouchableOpacity>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center', padding: 30, backgroundColor: '#fff' },
-    title: { fontSize: 28, marginBottom: 20, textAlign: 'center', fontWeight: 'bold', color: '#f3b4b4' },
-    input: { height: 50, borderColor: '#ccc', borderWidth: 1, marginBottom: 15, paddingHorizontal: 10, borderRadius: 8 },
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        padding: 30,
+        // Fundo Rosa Bebé
+        backgroundColor: theme.colors.background
+    },
+    title: {
+        fontSize: 32,
+        marginBottom: 10,
+        textAlign: 'center',
+        fontWeight: 'bold',
+        // Título Rosa Choque
+        color: theme.colors.primary
+    },
+    subtitle: {
+        fontSize: 18,
+        marginBottom: 40,
+        textAlign: 'center',
+        color: theme.colors.textSecondary,
+    },
+    input: {
+        height: 50,
+        // Input Branco com borda Rosa
+        backgroundColor: theme.colors.inputBackground,
+        borderColor: theme.colors.border,
+        borderWidth: 1,
+        marginBottom: 15,
+        paddingHorizontal: 15,
+        borderRadius: 12,
+        color: theme.colors.textPrimary
+    },
+    button: {
+        // Botão Rosa Choque Sólido
+        backgroundColor: theme.colors.primary,
+        padding: 15,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginBottom: 20,
+        height: 50,
+        justifyContent: 'center',
+        // Sombra Rosa
+        elevation: 3,
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    buttonText: {
+        color: theme.colors.white,
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    linkButton: {
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    linkText: {
+        // Link Rosa Choque
+        color: theme.colors.primary,
+        fontSize: 16,
+        textDecorationLine: 'underline',
+    },
 });
 
 export default RegisterScreen;
