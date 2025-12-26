@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
     Text, TouchableOpacity, StyleSheet, Alert,
-    ScrollView, Image, View, ActivityIndicator, PermissionsAndroid, Platform
+    ScrollView, Image, View, ActivityIndicator, PermissionsAndroid, Platform, TextInput
 } from "react-native";
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
@@ -16,7 +16,8 @@ import { PetActions } from "../actions/PetActions";
 
 // --- Componentes ---
 import BreedSearchModal from "../components/BreedSearchModal";
-import { AppInput } from "../components/AppInput";
+
+import { theme } from "../styles/theme";
 
 const DOG_API_URL = "https://api.thedogapi.com/v1";
 
@@ -34,7 +35,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     const [photo, setPhoto] = useState(animalToEdit?.photoUrl || null);
     const [location, setLocation] = useState(animalToEdit?.location || "");
 
-    // NOVO: Estado para guardar as coordenadas GPS invisíveis
+    // Estado para guardar as coordenadas GPS invisíveis
     const [coords, setCoords] = useState({
         lat: animalToEdit?.lat || null,
         lng: animalToEdit?.lng || null
@@ -53,7 +54,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     useEffect(() => {
         navigation.setOptions({ title: isEditMode ? 'Editar Animal' : 'Novo Animal' });
 
-        // INICIALIZAR O GEOCODER
+        // INICIALIZAR O GEOCODER (Substitui pela tua chave se necessário)
         Geocoder.init("AIzaSyBMWu-iiiQz4mhftlcYzFe84Ecl8IshLoU", { language : "pt" });
 
         const onAuthChange = () => setUser(AuthStore.getState().user);
@@ -84,8 +85,6 @@ export default function AddAnimalScreen({ navigation, route }) {
             Geolocation.getCurrentPosition(
                 async (pos) => {
                     const { latitude, longitude } = pos.coords;
-
-                    // NOVO: Guardar as coordenadas exatas
                     setCoords({ lat: latitude, lng: longitude });
 
                     try {
@@ -155,10 +154,8 @@ export default function AddAnimalScreen({ navigation, route }) {
         const animalData = {
             ...(isEditMode && { id: animalId }),
             name, breed, age: Number(age), temperament, contactNumber, photoUrl: photo, location,
-            // NOVO: Enviar coordenadas para a BD
             lat: coords.lat,
             lng: coords.lng,
-
             addedBy: user?.username || "Utilizador",
             addedById: user?._id || user?.id,
             ...(isEditMode ? { updatedAt: new Date().toISOString() } : { createdAt: new Date().toISOString() })
@@ -176,39 +173,59 @@ export default function AddAnimalScreen({ navigation, route }) {
     return (
         <ScrollView contentContainerStyle={styles.container}>
             <Text style={styles.title}>{isEditMode ? 'Editar Animal' : 'Novo Animal'}</Text>
+
             <Text style={styles.label}>Nome *</Text>
-            <AppInput value={name} onChangeText={setName} placeholder="Ex: Boby" />
+            <TextInput
+                style={styles.input}
+                value={name} onChangeText={setName}
+                placeholder="Ex: Boby"
+                placeholderTextColor={theme.colors.textPlaceholder}
+            />
 
             <Text style={styles.label}>Raça</Text>
-            <TouchableOpacity style={styles.inputBox} onPress={() => setIsBreedModalVisible(true)}>
-                <Text style={styles.inputText}>{breed}</Text>
+            <TouchableOpacity style={styles.breedInput} onPress={() => setIsBreedModalVisible(true)}>
+                <Text style={{color: theme.colors.textPrimary, fontSize: 16}}>{breed}</Text>
             </TouchableOpacity>
 
             <Text style={styles.label}>Idade (anos)</Text>
-            <AppInput value={age} onChangeText={setAge} keyboardType="numeric" placeholder="Ex: 5" />
+            <TextInput
+                style={styles.input}
+                value={age} onChangeText={setAge}
+                keyboardType="numeric"
+                placeholder="Ex: 5"
+                placeholderTextColor={theme.colors.textPlaceholder}
+            />
 
             <Text style={styles.label}>Temperamento</Text>
             <View style={{ justifyContent: 'center' }}>
-                <AppInput
-                    style={isFetchingTemperament && { backgroundColor: '#f0f0f0' }}
+                <TextInput
+                    style={[styles.input, isFetchingTemperament && { backgroundColor: theme.colors.background }]}
                     value={temperament}
                     onChangeText={setTemperament}
                     editable={!isFetchingTemperament}
                     placeholder="Ex: Calmo, Leal"
+                    placeholderTextColor={theme.colors.textPlaceholder}
                 />
-                {isFetchingTemperament && <ActivityIndicator style={styles.absLoader} color="#D81B60" />}
+                {isFetchingTemperament && <ActivityIndicator style={styles.absLoader} color={theme.colors.primary} />}
             </View>
 
             <Text style={styles.label}>Contacto *</Text>
-            <AppInput value={contactNumber} onChangeText={setContactNumber} keyboardType="phone-pad" placeholder="9xxxxxxxx" />
+            <TextInput
+                style={styles.input}
+                value={contactNumber} onChangeText={setContactNumber}
+                keyboardType="phone-pad"
+                placeholder="9xxxxxxxx"
+                placeholderTextColor={theme.colors.textPlaceholder}
+            />
 
             <Text style={styles.label}>Localização *</Text>
             <View style={styles.locRow}>
-                <AppInput
+                <TextInput
                     value={location}
                     onChangeText={setLocation}
                     placeholder="Cidade (ou use o botão)"
-                    style={{ flex: 1, marginBottom: 0 }}
+                    placeholderTextColor={theme.colors.textPlaceholder}
+                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
                 />
                 <TouchableOpacity style={styles.locBtnSmall} onPress={obterLocalizacao} disabled={loadingLocation}>
                     {loadingLocation ? <ActivityIndicator color="#fff" size="small"/> : <Text style={styles.whiteBtnText}>Google📍</Text>}
@@ -218,9 +235,14 @@ export default function AddAnimalScreen({ navigation, route }) {
 
             <Text style={styles.label}>Foto</Text>
             <View style={styles.row}>
-                <TouchableOpacity style={styles.photoBtn} onPress={tirarFoto}><Text style={styles.photoBtnText}>📷 Câmara</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.photoBtnOutline} onPress={abrirGaleria}><Text style={styles.photoBtnText}>🖼️ Galeria</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.photoBtn} onPress={tirarFoto}>
+                    <Text style={styles.whiteBtnText}>📷 Câmara</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.photoBtnOutline} onPress={abrirGaleria}>
+                    <Text style={styles.photoBtnTextOutline}>🖼️ Galeria</Text>
+                </TouchableOpacity>
             </View>
+
             {photo && <Image source={{ uri: photo }} style={styles.preview} />}
 
             <TouchableOpacity style={styles.saveBtn} onPress={handleSubmit} disabled={isSaving}>
@@ -249,21 +271,47 @@ export default function AddAnimalScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-    container: { padding: 25, backgroundColor: "#FFF0F5" },
-    title: { fontSize: 26, fontWeight: "bold", color: "#D81B60", textAlign: "center", marginBottom: 20 },
-    label: { fontSize: 16, fontWeight: "600", color: "#D81B60", marginTop: 5, marginBottom: 5 },
-    inputBox: { backgroundColor: "#fff", padding: 12, borderRadius: 10, borderWidth: 1.5, borderColor: "#FFB6C1", marginBottom: 15 },
-    inputText: { color: "#000", fontSize: 16 },
+    container: { padding: 25, backgroundColor: theme.colors.background }, // Rosa Bebé
+
+    title: { fontSize: 26, fontWeight: "bold", color: theme.colors.primary, textAlign: "center", marginBottom: 20 },
+    label: { fontSize: 16, fontWeight: "600", color: theme.colors.primary, marginTop: 5, marginBottom: 5 },
+
+    // Estilo de Input Unificado (Branco com borda rosa subtil)
+    input: {
+        backgroundColor: theme.colors.inputBackground,
+        padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border,
+        marginBottom: 15, fontSize: 16, color: theme.colors.textPrimary
+    },
+
+    // Estilo especial para o seletor de raça
+    breedInput: {
+        backgroundColor: theme.colors.inputBackground,
+        padding: 12, borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border,
+        marginBottom: 15, justifyContent: 'center'
+    },
+
     locRow: { flexDirection: 'row', gap: 10, marginBottom: 5, alignItems: 'center' },
-    locBtnSmall: { backgroundColor: "#DB4437", paddingHorizontal: 15, height: 50, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-    whiteBtnText: { color: "#fff", fontWeight: "bold" },
-    hint: { fontSize: 12, color: '#888', marginBottom: 15, fontStyle: 'italic' },
+
+    // Botão Google (Agora Rosa Choque)
+    locBtnSmall: { backgroundColor: theme.colors.primary, paddingHorizontal: 15, height: 50, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+    whiteBtnText: { color: theme.colors.white, fontWeight: "bold" },
+
+    hint: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 15, fontStyle: 'italic' },
+
     row: { flexDirection: 'row', gap: 10, marginTop: 5 },
-    photoBtn: { flex: 1, backgroundColor: "#FFB6C1", padding: 12, borderRadius: 10, alignItems: 'center' },
-    photoBtnOutline: { flex: 1, borderWidth: 1.5, borderColor: "#FFB6C1", padding: 12, borderRadius: 10, alignItems: 'center', backgroundColor: '#fff' },
-    photoBtnText: { color: "#880E4F", fontWeight: "500" },
-    preview: { width: "100%", height: 200, borderRadius: 10, marginTop: 15, borderWidth: 1, borderColor: "#D81B60" },
-    saveBtn: { backgroundColor: "#D81B60", padding: 18, borderRadius: 30, marginTop: 30, marginBottom: 50, alignItems: 'center' },
-    saveBtnText: { color: "#fff", fontWeight: "bold", fontSize: 18 },
+
+    // Botão Câmara (Sólido)
+    photoBtn: { flex: 1, backgroundColor: theme.colors.primary, padding: 12, borderRadius: 10, alignItems: 'center' },
+
+    // Botão Galeria (Outline)
+    photoBtnOutline: { flex: 1, borderWidth: 1, borderColor: theme.colors.primary, padding: 12, borderRadius: 10, alignItems: 'center', backgroundColor: theme.colors.inputBackground },
+    photoBtnTextOutline: { color: theme.colors.primary, fontWeight: "bold" },
+
+    preview: { width: "100%", height: 200, borderRadius: 10, marginTop: 15, borderWidth: 1, borderColor: theme.colors.primary },
+
+    // Botão Guardar Grande
+    saveBtn: { backgroundColor: theme.colors.primary, padding: 18, borderRadius: 30, marginTop: 30, marginBottom: 50, alignItems: 'center', elevation: 3, shadowColor: theme.colors.shadow },
+    saveBtnText: { color: theme.colors.white, fontWeight: "bold", fontSize: 18 },
+
     absLoader: { position: 'absolute', right: 15, top: 12 }
 });

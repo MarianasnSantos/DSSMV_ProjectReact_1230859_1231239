@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { theme } from "../styles/theme";
 
 const OpcoesScreen = ({ navigation }) => {
 
@@ -8,10 +9,9 @@ const OpcoesScreen = ({ navigation }) => {
             <Text style={styles.title}>O que deseja fazer? 🐾</Text>
             <Text style={styles.subtitle}>Escolha o seu destino na PetMatch.</Text>
 
-            {/* Opção 1: Feed de Animais para Adoção */}
+            {/* Opção 1: Feed de Animais */}
             <TouchableOpacity
                 style={[styles.button, styles.adoptionButton]}
-
                 onPress={() => navigation.navigate('AnimalsFeed')}
             >
                 <Text style={styles.buttonText}>🐶 Ver Animais para Adoção</Text>
@@ -21,10 +21,10 @@ const OpcoesScreen = ({ navigation }) => {
             {/* Opção 2: Comunidade */}
             <TouchableOpacity
                 style={[styles.button, styles.forumButton]}
-                onPress={() => navigation.navigate('ForumFeed')}
+                onPress={() => navigation.navigate('Explore')}
             >
                 <Text style={styles.buttonText}>💬 Comunidade e Partilha</Text>
-                <Text style={styles.buttonSubText}>Partilhe dicas e converse com outros tutores.</Text>
+                <Text style={styles.buttonSubText}>Partilhe dicas e converse com outros.</Text>
             </TouchableOpacity>
 
             {/* Opção 3: Favoritos */}
@@ -36,7 +36,6 @@ const OpcoesScreen = ({ navigation }) => {
                 <Text style={styles.buttonSubText}>Reveja os animais que gostou.</Text>
             </TouchableOpacity>
 
-
         </View>
     );
 };
@@ -45,51 +44,60 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         padding: 30,
-        backgroundColor: '#f8f8f8',
+        backgroundColor: theme.colors.background,
         justifyContent: 'center',
     },
     title: {
         fontSize: 26,
         fontWeight: 'bold',
         textAlign: 'center',
-        color: '#333',
+        color: theme.colors.primary,
         marginBottom: 10,
     },
     subtitle: {
         fontSize: 16,
         textAlign: 'center',
-        color: '#666',
+        color: theme.colors.textSecondary,
         marginBottom: 40,
     },
     button: {
         padding: 20,
-        borderRadius: 12,
+        borderRadius: 16,
         marginVertical: 10,
         alignItems: 'flex-start',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        elevation: 4,
+        // Sombra Rosa
+        shadowColor: theme.colors.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
     },
+
+    // Botão 1
     adoptionButton: {
-        backgroundColor: '#f3b4b4',
+        backgroundColor: theme.colors.primary,
     },
+
+    // Botão 2
     forumButton: {
-        backgroundColor: '#9be3ff',
+        backgroundColor: theme.colors.secondary,
     },
+
+    // Botão 3
     favoritesButton: {
-        backgroundColor: 'rgba(200, 162, 200, 0.93)',
+        backgroundColor: '#FF9EB5',
+
     },
+
     buttonText: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#fff',
+        color: theme.colors.white,
         marginBottom: 5,
     },
     buttonSubText: {
         fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.9)',
+        color: 'rgba(255, 255, 255, 0.95)',
     },
 });
 

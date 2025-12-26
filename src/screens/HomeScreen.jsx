@@ -1,13 +1,13 @@
-// src/screens/HomeScreen.jsx
-
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-// Removendo a tipagem React.FC
+// 👇 IMPORTA O TEMA
+import { theme } from "../styles/theme";
+
 const HomeScreen = () => {
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Bem-vindo!🐾</Text>
+            <Text style={styles.title}>Bem-vindo! 🐾</Text>
             <Text style={styles.subtitle}>Está na sua Área Principal (Autenticada).</Text>
         </View>
     );
@@ -18,17 +18,18 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f0f0f0',
+        // Fundo Rosa Bebé
+        backgroundColor: theme.colors.background,
     },
     title: {
         fontSize: 28,
         fontWeight: 'bold',
         marginBottom: 10,
-        color: '#333',
+        color: theme.colors.primary,
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        color: theme.colors.textSecondary,
     },
 });
 
