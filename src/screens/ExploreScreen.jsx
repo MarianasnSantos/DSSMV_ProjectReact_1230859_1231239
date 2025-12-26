@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
     View, Text, FlatList, Image, StyleSheet, ActivityIndicator, TouchableOpacity,
     SafeAreaView, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform
@@ -180,18 +180,7 @@ export default function ExploreScreen({ navigation }) {
         }
     };
 
-    const handleLikePost = async (post) => {
-        if (!isLoggedIn) return Alert.alert("Aviso", "Logue-se para dar like! ❤️");
-        const updatedPosts = posts.map(p => p._id === post._id ? { ...p, likes: (p.likes || 0) + 1 } : p);
-        setPosts(updatedPosts);
-        try {
-            await fetch(`${RESTDB_BASE_URL}/posts/${post._id}`, {
-                method: 'PUT',
-                headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY },
-                body: JSON.stringify({ likes: (post.likes || 0) + 1 })
-            });
-        } catch (error) { console.log(error); }
-    };
+    // --- NOTE: A função handleLikePost foi removida daqui! ---
 
     const handleDeletePost = async (postId) => {
         Alert.alert("Eliminar", "Apagar esta partilha?", [
@@ -293,15 +282,14 @@ export default function ExploreScreen({ navigation }) {
                 </View>
                 <Image source={{ uri: item.image }} style={styles.commImage} resizeMode="cover" />
                 <View style={styles.commFooter}>
+
+                    {/* 👇 AQUI: SEM LIKES, SÓ COMENTÁRIOS */}
                     <View style={styles.actionRow}>
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', marginRight: 15 }} onPress={() => handleLikePost(item)}>
-                            <Text style={{ fontSize: 22 }}>❤️</Text>
-                            <Text style={{ marginLeft: 5, fontWeight: 'bold', color: '#D81B60' }}>{item.likes || 0}</Text>
-                        </TouchableOpacity>
                         <TouchableOpacity onPress={() => openComments(item)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ fontSize: 22 }}>💬</Text>
+                            <Text style={{ fontSize: 22 }}>💬 <Text style={{fontSize: 14, color: '#555'}}>Comentar</Text></Text>
                         </TouchableOpacity>
                     </View>
+
                     {item.description ? (
                         <Text style={styles.commDescription}><Text style={{ fontWeight: 'bold' }}>{item.author}</Text> {item.description}</Text>
                     ) : null}
@@ -325,7 +313,14 @@ export default function ExploreScreen({ navigation }) {
                 <FlatList data={breeds} keyExtractor={(item) => item.id.toString()} renderItem={renderBreedItem} onRefresh={handleRefreshBreeds} refreshing={isRefreshingBreeds} onEndReached={handleLoadMoreBreeds} />
             ) : (
                 <>
-                    <FlatList data={posts} keyExtractor={(item) => item._id} renderItem={renderCommunityPost} onRefresh={fetchCommunityPosts} refreshing={isRefreshingPosts} />
+                    <FlatList
+                        data={posts}
+                        // 👇 Mantém a correção do _id para não dar erro vermelho
+                        keyExtractor={(item) => `post-${item._id || item.id || Math.random()}`}
+                        renderItem={renderCommunityPost}
+                        onRefresh={fetchCommunityPosts}
+                        refreshing={isRefreshingPosts}
+                    />
                     <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}><Text style={styles.fabText}>+</Text></TouchableOpacity>
                 </>
             )}
