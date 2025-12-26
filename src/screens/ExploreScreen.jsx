@@ -180,8 +180,6 @@ export default function ExploreScreen({ navigation }) {
         }
     };
 
-    // --- NOTE: A função handleLikePost foi removida daqui! ---
-
     const handleDeletePost = async (postId) => {
         Alert.alert("Eliminar", "Apagar esta partilha?", [
             { text: "Cancelar" },
@@ -283,7 +281,7 @@ export default function ExploreScreen({ navigation }) {
                 <Image source={{ uri: item.image }} style={styles.commImage} resizeMode="cover" />
                 <View style={styles.commFooter}>
 
-                    {/* 👇 AQUI: SEM LIKES, SÓ COMENTÁRIOS */}
+                    {}
                     <View style={styles.actionRow}>
                         <TouchableOpacity onPress={() => openComments(item)} style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <Text style={{ fontSize: 22 }}>💬 <Text style={{fontSize: 14, color: '#555'}}>Comentar</Text></Text>

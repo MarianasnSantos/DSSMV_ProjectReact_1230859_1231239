@@ -74,6 +74,8 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     const [showFilters, setShowFilters] = useState(false);
 
     useEffect(() => {
+        PetActions.loadAnimals();
+
         if (route.params?.smartTemperament) {
             setSmartMatchTarget(route.params.smartTemperament);
             PetActions.setFilter('breed', 'Todos');
@@ -152,7 +154,6 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
         // 3. Filtro de Adotados vs Disponíveis
         filteredList = filteredList.filter(pet => {
-            // ⭐️ MUDANÇA AQUI: Aceita booleano ou string do RestDB
             const isAdopted = pet.adopted === true || pet.adopted === "true";
             return showAdopted ? isAdopted : !isAdopted;
         });
@@ -229,16 +230,11 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
     const handleToggleStatus = async (animal) => {
         const idAnimal = animal._id || animal.id;
-
-        // Força a descoberta do estado booleano real antes de inverter
         const estadoAtual = animal.adopted === true || animal.adopted === "true";
         const novoEstado = !estadoAtual;
 
         try {
             await PetActions.updateAnimal({ id: idAnimal, _id: idAnimal, adopted: novoEstado });
-
-
-
             Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado! 🏠" : "Disponível! 🐶");
         } catch (error) {
             console.log("Erro ao atualizar status:", error);
