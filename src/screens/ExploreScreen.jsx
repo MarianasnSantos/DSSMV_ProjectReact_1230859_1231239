@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
     View, Text, FlatList, Image, StyleSheet, ActivityIndicator, TouchableOpacity,
     SafeAreaView, RefreshControl, Alert, Modal, TextInput, KeyboardAvoidingView, Platform
@@ -38,7 +38,6 @@ export default function ExploreScreen({ navigation }) {
     const [posts, setPosts] = useState([]);
     const [loadingPosts, setLoadingPosts] = useState(false);
     const [isRefreshingPosts, setIsRefreshingPosts] = useState(false);
-    const [commentCounts, setCommentCounts] = useState({});
 
     // --- ESTADOS: COMENTÁRIOS & EDIÇÃO ---
     const [modalVisible, setModalVisible] = useState(false);
@@ -48,29 +47,16 @@ export default function ExploreScreen({ navigation }) {
     const [loadingComments, setLoadingComments] = useState(false);
     const [editingCommentId, setEditingCommentId] = useState(null);
 
-
-
+    // Função auxiliar para datas
     const formatCommentDate = (dateVal) => {
         if (!dateVal) return "Agora";
+        if (typeof dateVal === 'string' && dateVal.includes(' às ')) return dateVal;
+        if (typeof dateVal === 'string' && dateVal.includes('/2025')) return dateVal.replace('/2025', '');
 
-        // 1. Se for o formato com horas (ex: "22/12 às 18:00"), exibe direto
-        if (typeof dateVal === 'string' && dateVal.includes(' às ')) {
-            return dateVal;
-        }
-
-        // 2. Se for o formato dos teus posts (ex: "22/12/2025")
-        // Vamos apenas tirar o /2025 para ficar mais bonito no feed
-        if (typeof dateVal === 'string' && dateVal.includes('/2025')) {
-            return dateVal.replace('/2025', '');
-        }
-
-        // 3. Fallback: Tenta converter se for um ISO ou objeto Date
         const date = new Date(dateVal);
         if (isNaN(date.getTime()) || date.getFullYear() <= 1970) {
-            // Se for um texto qualquer que não reconhecemos, mostra o texto tal como está
             return typeof dateVal === 'string' ? dateVal : "Recentemente";
         }
-
         const dia = String(date.getDate()).padStart(2, '0');
         const mes = String(date.getMonth() + 1).padStart(2, '0');
         return `${dia}/${mes}`;
@@ -164,7 +150,6 @@ export default function ExploreScreen({ navigation }) {
         <TouchableOpacity style={styles.cardBreed} onPress={() => handleGoToFeed(item)} activeOpacity={0.9}>
             <Image source={{ uri: item.imageUrl }} style={styles.imageBreed} />
             <View style={styles.textContainer}>
-                {/* Correção Imagem 2: Removida a 'div' que causava o erro de renderização */}
                 <View style={styles.headerContainer}>
                     <Text style={styles.nameBreed}>{item.name}</Text>
                     {renderFavoriteIcon(item)}
@@ -186,37 +171,12 @@ export default function ExploreScreen({ navigation }) {
                 headers: { "content-type": "application/json", "x-apikey": RESTDB_API_KEY, "cache-control": "no-cache" }
             });
             const data = await response.json();
-            const postsList = Array.isArray(data) ? data.reverse() : [];
-            setPosts(postsList);
-
-            postsList.forEach(post => {
-                fetchCommentCount(post._id);
-            });
-
+            setPosts(Array.isArray(data) ? data.reverse() : []);
         } catch (error) {
             console.log("Erro ao carregar posts:", error);
         } finally {
             setLoadingPosts(false);
             setIsRefreshingPosts(false);
-        }
-    };
-
-    const fetchCommentCount = async (postId) => {
-        try {
-            // Criamos a query para contar quantos comentários têm este postId
-            const query = JSON.stringify({ postId: postId });
-            const response = await fetch(`${RESTDB_BASE_URL}/comments?q=${query}&count=true`, {
-                headers: { "x-apikey": RESTDB_API_KEY }
-            });
-            const data = await response.json();
-
-            // Atualiza o estado com o valor real vindo da base de dados
-            setCommentCounts(prev => ({
-                ...prev,
-                [postId]: data.count || 0
-            }));
-        } catch (e) {
-            console.log("Erro na contagem:", e);
         }
     };
 
@@ -249,7 +209,7 @@ export default function ExploreScreen({ navigation }) {
     };
 
     // ============================================================
-    // 3. LÓGICA DE COMENTÁRIOS (COM EDIÇÃO)
+    // 3. LÓGICA DE COMENTÁRIOS
     // ============================================================
     const openComments = async (post) => {
         setCurrentPostId(post._id);
@@ -270,8 +230,6 @@ export default function ExploreScreen({ navigation }) {
 
     const handleSendComment = async () => {
         if (newComment.trim() === "" || !user) return;
-
-        // Correção Imagem 3: Gera a data manualmente para evitar o formato 1970
         const now = new Date();
         const dataString = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')} às ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -305,7 +263,6 @@ export default function ExploreScreen({ navigation }) {
                 const saved = await res.json();
                 setCommentsList(prev => [...prev, saved]);
                 setNewComment("");
-                setCommentCounts(prev => ({ ...prev, [currentPostId]: (prev[currentPostId] || 0) + 1 }));
             } catch (e) { console.log(e); }
         }
     };
@@ -315,7 +272,6 @@ export default function ExploreScreen({ navigation }) {
             { text: "Não" },
             { text: "Sim", style: "destructive", onPress: async () => {
                     setCommentsList(prev => prev.filter(c => c._id !== commentId));
-                    setCommentCounts(prev => ({ ...prev, [currentPostId]: Math.max(0, (prev[currentPostId] || 1) - 1) }));
                     await fetch(`${RESTDB_BASE_URL}/comments/${commentId}`, { method: 'DELETE', headers: { "x-apikey": RESTDB_API_KEY } });
                 }}
         ]);
@@ -344,7 +300,6 @@ export default function ExploreScreen({ navigation }) {
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => openComments(item)} style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <Text style={{ fontSize: 22 }}>💬</Text>
-                            <Text style={{ marginLeft: 5, fontWeight: 'bold', color: '#555' }}>{commentCounts[item._id] || 0}</Text>
                         </TouchableOpacity>
                     </View>
                     {item.description ? (
@@ -388,7 +343,6 @@ export default function ExploreScreen({ navigation }) {
                                 <View style={styles.commentItem}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                         <Text style={styles.commentAuthor}>{item.author}</Text>
-                                        {/* Fallback Imagem 3: Corrige visualmente se a data for 1970 */}
                                         <Text style={styles.commentDate}>{formatCommentDate(item.date)}</Text>
                                     </View>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
