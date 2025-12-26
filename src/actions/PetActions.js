@@ -85,7 +85,7 @@ async function deleteAnimalFromRestDB(animalId) {
 
 async function putAnimalToRestDB(animalData) {
     const res = await fetch(`${RESTDB_URL}/${animalData.id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-apikey': RESTDB_API_KEY, 'Cache-Control': 'no-cache' },
         body: JSON.stringify(animalData)
     });

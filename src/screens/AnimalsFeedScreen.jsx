@@ -37,8 +37,18 @@ function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
         const handleChange = () => setState(PetStore.getState());
+
+        // Adiciona o ouvinte
         PetStore.addChangeListener(handleChange);
-        return () => PetStore.removeListener(handleChange);
+
+        // Remove usando EXATAMENTE o mesmo padrão de nome da biblioteca EventEmitter
+        return () => {
+            if (PetStore.removeChangeListener) {
+                PetStore.removeChangeListener(handleChange);
+            } else {
+                PetStore.removeListener(handleChange);
+            }
+        };
     }, []);
     return state;
 }
@@ -141,7 +151,11 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         });
 
         // 3. Filtro de Adotados vs Disponíveis
-        filteredList = filteredList.filter(pet => showAdopted ? pet.adopted === true : !pet.adopted);
+        filteredList = filteredList.filter(pet => {
+            // ⭐️ MUDANÇA AQUI: Aceita booleano ou string do RestDB
+            const isAdopted = pet.adopted === true || pet.adopted === "true";
+            return showAdopted ? isAdopted : !isAdopted;
+        });
 
         // 4. Smart Match
         if (smartMatchTarget) {
@@ -215,11 +229,21 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
     const handleToggleStatus = async (animal) => {
         const idAnimal = animal._id || animal.id;
-        const novoEstado = !animal.adopted;
+
+        // Força a descoberta do estado booleano real antes de inverter
+        const estadoAtual = animal.adopted === true || animal.adopted === "true";
+        const novoEstado = !estadoAtual;
+
         try {
             await PetActions.updateAnimal({ id: idAnimal, _id: idAnimal, adopted: novoEstado });
-            Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado!" : "Disponível!");
-        } catch (error) { console.log(error); }
+
+
+
+            Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado! 🏠" : "Disponível! 🐶");
+        } catch (error) {
+            console.log("Erro ao atualizar status:", error);
+            Alert.alert("Erro", "Não foi possível atualizar o estado.");
+        }
     };
 
     const formatDate = (isoString) => {
@@ -315,6 +339,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
             {/* LISTA */}
             <FlatList
                 data={getFilteredAnimals()}
+                extraData={[animals, showAdopted]}
                 keyExtractor={(item) => String(item.id || item._id)}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#FF69B4"]} />}
                 contentContainerStyle={{ paddingBottom: 100 }}

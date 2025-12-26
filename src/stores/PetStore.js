@@ -97,15 +97,22 @@ AppDispatcher.register((action) => {
             break;
 
         case 'UPDATE_ANIMAL_SUCCESS':
-            const updatedAnimal = action.payload.animal;
-            const updatedAnimalsList = _state.animals.map(animal =>
-                animal.id === updatedAnimal.id ? updatedAnimal : animal
-            );
+            const incomingData = action.payload.animal;
+            const newList = _state.animals.map(animal => {
+                // Compara IDs garantindo que são strings
+                const isMatch = String(animal._id || animal.id) === String(incomingData._id || incomingData.id);
+
+                if (isMatch) {
+                    // FADOPÇÃO: Mantém o animal original e espalha os novos dados por cima
+                    return { ...animal, ...incomingData };
+                }
+                return animal;
+            });
 
             _state = {
                 ..._state,
                 loading: false,
-                animals: updatedAnimalsList,
+                animals: newList, // Agora a lista tem uma nova referência, o React VAI ver
                 error: null
             };
             store.emitChange();
@@ -130,11 +137,12 @@ AppDispatcher.register((action) => {
             _state = {
                 ..._state,
                 loading: false,
-                // Filtra para remover o animal com o ID que foi apagado
-                animals: _state.animals.filter(a => a.id !== action.payload.id),
+                // Compara ambos os tipos de ID para garantir a remoção
+                animals: _state.animals.filter(a =>
+                    String(a.id || a._id) !== String(action.payload.id)
+                ),
                 error: null
             };
-            // ⚠️ CORREÇÃO: Emitir mudança após a atualização ⚠️
             store.emitChange();
             break;
 
