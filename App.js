@@ -1,73 +1,51 @@
-// App.jsx (ou App.js na raiz do seu projeto)
-
 import React, { useEffect, useState } from 'react';
 import {
     Text,
     StyleSheet,
     StatusBar,
-    useColorScheme,
     ActivityIndicator,
     View,
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-// Importação crucial para usar a navegação
 import { NavigationContainer } from '@react-navigation/native';
+
 import AuthNavigator from './src/navigation/AuthNavigator';
 import MainNavigator from './src/navigation/MainNavigator';
 
-// ⭐️ IMPORTAÇÕES FLUX
+// Flux
 import AuthStore from './src/stores/AuthStore';
 
-// --- Hook Customizado para integração com o AuthStore ---
+import { theme } from './src/styles/theme';
+
 function useAuthStoreState() {
     const [state, setState] = useState(AuthStore.getState());
-
     useEffect(() => {
-        const handleChange = () => {
-            setState(AuthStore.getState());
-        };
+        const handleChange = () => setState(AuthStore.getState());
         AuthStore.addChangeListener(handleChange);
-        return () => {
-            // Usa o método corrigido do AuthStore
-            AuthStore.removeChangeListener(handleChange);
-        };
+        return () => AuthStore.removeChangeListener(handleChange);
     }, []);
-
     return state;
 }
 
 const App = () => {
-
-    // Obtemos o estado completo
     const { isLoggedIn, loading, user } = useAuthStoreState();
-
-    // ⭐️ ESTADO PARA ESPERAR PELO ASYNCSTORAGE ⭐️
     const [isStoreInitialized, setIsStoreInitialized] = useState(false);
 
     useEffect(() => {
-        // 1. CHAMA O MÉTODO PARA CARREGAR O ESTADO PERSISTENTE
         AuthStore.initialize();
-
-        // 2. Timeout para garantir que o processo assíncrono do loadState()
-        // termina antes de decidir o que renderizar.
         const initializeTimeout = setTimeout(() => {
             setIsStoreInitialized(true);
-        }, 800); // 800ms é um valor seguro para esperar pelo AsyncStorage
-
+        }, 800);
         return () => clearTimeout(initializeTimeout);
-
     }, []);
 
-
-    const isDarkMode = useColorScheme() === 'dark';
-
-    // ⭐️ ECRÃ DE CARREGAMENTO INICIAL: Mostra se o Store ainda não carregou os dados ⭐️
+    // Ecrã de Carregamento
     if (loading || !isStoreInitialized) {
         return (
             <SafeAreaProvider>
                 <View style={styles.loaderContainer}>
-                    <ActivityIndicator size="large" color="#f3b4b4" />
+                    {/* Loader Rosa Choque */}
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
                     <Text style={styles.loadingText}>A carregar sessão...</Text>
                 </View>
             </SafeAreaProvider>
@@ -76,15 +54,16 @@ const App = () => {
 
     return (
         <SafeAreaProvider>
-            <StatusBar barStyle={isDarkMode ? 'dark-content' : 'dark-content'} />
+            {/*
+                backgroundColor: Cor de fundo da barra da bateria
+                barStyle: "light-content" põe os ícones (bateria, horas) a branco
+            */}
+            <StatusBar backgroundColor={theme.colors.primary} barStyle="light-content" />
 
             <NavigationContainer>
-                {/* ⭐️ DECISÃO DE NAVEGAÇÃO: Baseada no estado persistente ⭐️ */}
                 {isLoggedIn && user ? (
-                    // Se estiver logado E tiver os dados do utilizador
                     <MainNavigator/>
                 ) : (
-                    // Se não estiver logado (ou se os dados falharam), vai para o Login/Registo
                     <AuthNavigator />
                 )}
             </NavigationContainer>
@@ -97,31 +76,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: theme.colors.background,
     },
     loadingText: {
         marginTop: 10,
-        color: '#666',
+        color: theme.colors.textSecondary,
     },
-    mainContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#e0f7fa',
-    },
-    mainText: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#00796b',
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    subText: {
-        fontSize: 16,
-        color: '#333',
-        textAlign: 'center',
-        marginHorizontal: 20,
-    }
 });
 
 export default App;

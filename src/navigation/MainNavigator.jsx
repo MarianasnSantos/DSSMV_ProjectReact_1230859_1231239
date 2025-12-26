@@ -13,9 +13,9 @@ import ExploreScreen from '../screens/ExploreScreen';
 import HomeScreen from '../screens/HomeScreen';
 import AddAnimalScreen from "../screens/AddAnimalScreen";
 import FavoritesScreen from '../screens/FavoriteScreen';
-
-// ⚠️ CORREÇÃO AQUI: Tem de ser '../screens/' e não './screens/'
 import CreatePostScreen from "../screens/CreatePostScreen";
+
+import { theme } from '../styles/theme';
 
 const MainStack = createStackNavigator();
 
@@ -43,16 +43,24 @@ const MainNavigator = () => {
         <MainStack.Navigator
             initialRouteName="Opcoes"
             screenOptions={{
-                headerStyle: { backgroundColor: '#f3b4b4' },
-                headerTintColor: '#fff',
+                // 1. BARRA DE CIMA ROSA CHOQUE
+                headerStyle: {
+                    backgroundColor: theme.colors.primary,
+                    elevation: 0,
+                    shadowOpacity: 0
+                },
+                // 2. TEXTO E SETAS A BRANCO
+                headerTintColor: theme.colors.white,
                 headerTitleStyle: { fontWeight: 'bold' },
+                // 3. FUNDO DOS ECRÃS ROSA BEBÉ
+                cardStyle: { backgroundColor: theme.colors.background }
             }}
         >
             <MainStack.Screen
                 name="Opcoes"
                 component={OpcoesScreen}
                 options={{
-                    headerTitle: user ? `Olá, ${user.username}` : 'Menu Principal',
+                    headerTitle: user ? `Olá, ${user.username || user.name}` : 'Menu Principal',
                     headerTitleAlign: 'left',
                     headerRight: () => (
                         <TouchableOpacity onPress={handleLogout} style={styles.headerLogoutBtn}>
@@ -65,31 +73,33 @@ const MainNavigator = () => {
             <MainStack.Screen
                 name="AnimalsFeed"
                 component={AnimalsFeedScreen}
-                options={{ title: 'Animais para Adoção' }}
-            />
-            <MainStack.Screen
-                name="ForumFeed"
-                component={ExploreScreen}
-                options={{ title: 'Comunidade' }}
-            />
-            <MainStack.Screen
-                name="Favorites"
-                component={FavoritesScreen}
-                options={{ title: 'Meus Favoritos' }}
-            />
-            <MainStack.Screen
-                name="AddAnimal"
-                component={AddAnimalScreen}
-                options={{ title: "Adicionar Animal" }}
+                options={{ title: 'Adotar um Amigo 🐶' }}
             />
 
             {}
             <MainStack.Screen
+                name="Explore"
+                component={ExploreScreen}
+                options={{ title: 'Comunidade & Raças 📸' }}
+            />
+
+            <MainStack.Screen
+                name="Favorites"
+                component={FavoritesScreen}
+                options={{ title: 'Meus Favoritos ❤️' }}
+            />
+
+            <MainStack.Screen
+                name="AddAnimal"
+                component={AddAnimalScreen}
+                options={{ title: "Colocar para Adoção" }}
+            />
+
+            <MainStack.Screen
                 name="CreatePost"
                 component={CreatePostScreen}
-                options={{ title: "Nova Publicação" }}
+                options={{ title: "Nova Partilha" }}
             />
-            {/* ------------------------------------------- */}
 
             <MainStack.Screen
                 name="Home"
@@ -103,7 +113,7 @@ const MainNavigator = () => {
 const styles = StyleSheet.create({
     headerLogoutBtn: {
         marginRight: 15,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+        backgroundColor: 'rgba(255,255,255,0.25)',
         paddingHorizontal: 12,
         paddingVertical: 5,
         borderRadius: 15,
