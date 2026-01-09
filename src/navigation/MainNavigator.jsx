@@ -10,7 +10,6 @@ import { UserActions } from '../actions/UserActions';
 import OpcoesScreen from '../screens/OpcoesScreen';
 import AnimalsFeedScreen from '../screens/AnimalsFeedScreen';
 import ExploreScreen from '../screens/ExploreScreen';
-import HomeScreen from '../screens/HomeScreen';
 import AddAnimalScreen from "../screens/AddAnimalScreen";
 import FavoritesScreen from '../screens/FavoriteScreen';
 import CreatePostScreen from "../screens/CreatePostScreen";
@@ -101,11 +100,6 @@ const MainNavigator = () => {
                 options={{ title: "Nova Partilha" }}
             />
 
-            <MainStack.Screen
-                name="Home"
-                component={HomeScreen}
-                options={{ title: 'Home' }}
-            />
         </MainStack.Navigator>
     );
 };
