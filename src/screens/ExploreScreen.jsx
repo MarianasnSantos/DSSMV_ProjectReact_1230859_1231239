@@ -89,6 +89,16 @@ export default function ExploreScreen({ navigation }) {
         } catch (error) { console.log("Erro posts:", error); } finally { setLoadingPosts(false); setIsRefreshingPosts(false); }
     };
 
+    const getOrderedPosts = () => {
+        if (!posts || posts.length === 0) return [];
+        // Ordena pelo campo createdAt que criaste no ecrã de publicação
+        return [...posts].sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA; // Mais recente no topo
+        });
+    };
+
     const handleDeletePost = async (postId) => {
         Alert.alert("Eliminar", "Apagar esta partilha?", [{ text: "Cancelar" }, { text: "Apagar", style: "destructive", onPress: async () => {
                 try { await fetch(`${RESTDB_BASE_URL}/posts/${postId}`, { method: 'DELETE', headers: { "x-apikey": RESTDB_API_KEY } }); setPosts(prev => prev.filter(p => p._id !== postId)); } catch (e) { console.log(e); }
@@ -196,7 +206,13 @@ export default function ExploreScreen({ navigation }) {
                 />
             ) : (
                 <>
-                    <FlatList data={posts} keyExtractor={(item) => `post-${item._id || item.id || Math.random()}`} renderItem={renderCommunityPost} onRefresh={fetchCommunityPosts} refreshing={isRefreshingPosts}
+                    <FlatList
+                        data={getOrderedPosts()}
+                        keyExtractor={(item) => `post-${item._id || item.id || Math.random()}`}
+                        renderItem={renderCommunityPost}
+                        onRefresh={fetchCommunityPosts}
+                        refreshing={isRefreshingPosts}
+                        extraData={posts}
                               ListEmptyComponent={loadingPosts ? <ActivityIndicator style={styles.centerLoader} color={theme.colors.primary} size="large" /> : <Text style={styles.emptyText}>Sem partilhas ainda.</Text>}
                     />
                     <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}><Text style={styles.fabText}>+</Text></TouchableOpacity>
