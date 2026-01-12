@@ -1,16 +1,9 @@
-// src/services/AuthService.js
 
-// Importa o modelo User (apenas para referência, pois a classe User.js já está em JS)
-import { User } from '../model/User';
-// ✅ Importa as constantes reais do seu ficheiro de configuração (ApiConfig.js)
 import { API_KEY, BASE_URL, DATABASE_NAME } from './ApiConfig';
 
-// Constrói a URL final para a coleção 'Appusers'
+
 const RESTDB_USERS_URL = `${BASE_URL}/${DATABASE_NAME}`;
 
-/**
- * Autentica/verifica se o utilizador existe na base de dados (GET).
- */
 export async function authenticateUser(username) {
     // A query para buscar o usuário
     const query = { username: username };
@@ -47,9 +40,6 @@ export async function authenticateUser(username) {
 }
 
 
-/**
- * Regista um novo utilizador (POST).
- */
 export async function registerUser(username) {
 
     // 1. Verifica se já existe antes de tentar registar
@@ -61,7 +51,6 @@ export async function registerUser(username) {
     // 2. Cria o objeto JSON para POST
     const newUser = {
         username: username,
-        // Adicione aqui outros campos OBRIGATÓRIOS!
     };
 
     try {

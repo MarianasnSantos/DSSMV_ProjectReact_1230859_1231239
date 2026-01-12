@@ -1,10 +1,10 @@
-// src/stores/AuthStore.js
+
 
 import EventEmitter from 'eventemitter3';
 import AppDispatcher from '../dispatchers/AppDispatcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Chave única para guardar o estado no AsyncStorage
+
 const AUTH_STORE_KEY = 'AuthStoreData';
 
 // Estado privado
@@ -15,10 +15,6 @@ let _state = {
     error: null,
     favorites: [],
 };
-
-// ------------------------------------------------------------------
-// ⭐️ FUNÇÕES DE PERSISTÊNCIA (DEFINIDAS FORA DA CLASSE) ⭐️
-// ------------------------------------------------------------------
 
 const saveState = async () => {
     try {
@@ -51,7 +47,6 @@ const loadState = async () => {
             isLoggedIn: storedData.isLoggedIn || false,
         };
 
-        // 'store' ainda não foi definido, mas emitChange irá funcionar após a definição da store
         store.emitChange();
 
     } catch (e) {
@@ -78,7 +73,6 @@ class AuthStore extends EventEmitter {
         this.removeListener('change', callback);
     }
 
-    // ⭐️ MÉTODO initialize() APENAS CHAMA A FUNÇÃO GLOBAL loadState() ⭐️
     initialize() {
         loadState(); // CHAMA A FUNÇÃO loadState DEFINIDA ACIMA
     }
@@ -89,7 +83,7 @@ const store = new AuthStore(); // A variável 'store' agora é definida
 // --- Registro no Dispatcher (Lógica de Negócio de Autenticação) ---
 AppDispatcher.register((action) => {
     switch (action.type) {
-        // ... (Resto da lógica de ações, inalterada)
+
         case 'USER_LOGIN_SUCCESS':
         case 'USER_REGISTER_SUCCESS':
             const fetchedFavorites = action.payload.user.favorites || [];

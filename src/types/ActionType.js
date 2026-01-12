@@ -1,4 +1,4 @@
-// src/types/ActionTypes.js
+
 
 /**
  * @typedef {object} FluxAction
@@ -6,5 +6,3 @@
  * @property {any} [payload] - Os dados que a ação carrega.
  */
 
-// Este arquivo não precisa exportar nada no JS puro,
-// pois apenas define a estrutura para documentação.

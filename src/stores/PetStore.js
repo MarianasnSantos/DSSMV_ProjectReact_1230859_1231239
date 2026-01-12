@@ -8,7 +8,7 @@ let _state = {
     loading: false,
     error: null,
     adoptionRequests: {},
-    breeds: ['Todos'], // Raças vindas do TheDogAPI
+    breeds: ['Todos'],
     filters: {
         breed: null,
         minAge: null,
@@ -26,16 +26,9 @@ class PetStore extends EventEmitter {
 const store = new PetStore();
 
 
-// ===============================================================
-// Dispatcher
-// ===============================================================
 
 AppDispatcher.register((action) => {
     switch (action.type) {
-
-        // ===============================================================
-        // CARREGAR ANIMAIS (Inalterado)
-        // ===============================================================
 
         case 'LOAD_ANIMALS_START':
             _state = { ..._state, loading: true, error: null };
@@ -62,10 +55,6 @@ AppDispatcher.register((action) => {
             break;
 
 
-        // ===============================================================
-        // CRIAR ANIMAL (Inalterado)
-        // ===============================================================
-
         case 'CREATE_ANIMAL_START':
             _state = { ..._state, loading: true, error: null };
             store.emitChange();
@@ -87,10 +76,6 @@ AppDispatcher.register((action) => {
             break;
 
 
-        // ===============================================================
-        // ⭐️ ATUALIZAR ANIMAL (NOVO) ⭐️
-        // ===============================================================
-
         case 'UPDATE_ANIMAL_START':
             _state = { ..._state, loading: true, error: null };
             store.emitChange();
@@ -103,7 +88,6 @@ AppDispatcher.register((action) => {
                 const isMatch = String(animal._id || animal.id) === String(incomingData._id || incomingData.id);
 
                 if (isMatch) {
-                    // FADOPÇÃO: Mantém o animal original e espalha os novos dados por cima
                     return { ...animal, ...incomingData };
                 }
                 return animal;
@@ -112,7 +96,7 @@ AppDispatcher.register((action) => {
             _state = {
                 ..._state,
                 loading: false,
-                animals: newList, // Agora a lista tem uma nova referência, o React VAI ver
+                animals: newList,
                 error: null
             };
             store.emitChange();
@@ -122,11 +106,6 @@ AppDispatcher.register((action) => {
             _state = { ..._state, loading: false, error: action.payload.error };
             store.emitChange();
             break;
-
-
-        // ===============================================================
-        // APAGAR ANIMAL
-        // ===============================================================
 
         case 'DELETE_ANIMAL_START':
             _state = { ..._state, loading: true, error: null };
@@ -152,9 +131,6 @@ AppDispatcher.register((action) => {
             break;
 
 
-        // ===============================================================
-        // FILTROS (Inalterado)
-        // ===============================================================
 
         case 'SET_FILTER':
             const { filterType, value } = action.payload;
@@ -168,9 +144,6 @@ AppDispatcher.register((action) => {
             break;
 
 
-        // ===============================================================
-        // ADOÇÃO (Inalterado)
-        // ===============================================================
 
         case 'ADOPTION_START':
             _state = {
@@ -205,10 +178,6 @@ AppDispatcher.register((action) => {
             store.emitChange();
             break;
 
-
-        // ===============================================================
-        // FAVORITOS (Inalterado)
-        // ===============================================================
 
         case 'FAVORITE_SUCCESS':
         case 'FAVORITE_FAIL':

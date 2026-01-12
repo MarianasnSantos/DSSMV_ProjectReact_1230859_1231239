@@ -1,6 +1,4 @@
-// src/utils/translations.js
 
-// --- 1. Mapa de Tradução (Temperamentos) ---
 export const TEMPERAMENT_TRANSLATIONS = {
     // Termos básicos
     'Curious': 'Curioso',
@@ -75,7 +73,7 @@ export const TEMPERAMENT_TRANSLATIONS = {
     'Confident': 'Confiante',
     'Courageous': 'Corajoso',
     'Responsive': 'Recetivo',
-    'Receptive': 'Recetivo', // Ou Recetivo, dependendo da sua preferência
+    'Receptive': 'Recetivo',
     'Faithful': 'Fiel',
     'Dutiful': 'Diligente',
     'Responsible': 'Responsável',
@@ -90,7 +88,6 @@ export const TEMPERAMENT_TRANSLATIONS = {
 };
 
 
-// --- 2. Função para Traduzir Múltiplos Temperamentos ---
 export const translateTemperament = (temperamentString) => {
     if (!temperamentString) return '';
     const temperaments = temperamentString.split(',').map(t => t.trim());
@@ -98,7 +95,6 @@ export const translateTemperament = (temperamentString) => {
     return translated.join(', ');
 };
 
-// --- 3. Função para Traduzir o Tempo de Vida (Life Span) ---
 export const translateLifeSpan = (lifeSpanString) => {
     if (!lifeSpanString) return '';
 
