@@ -10,17 +10,17 @@ export default function TemperamentModal({ isVisible, onClose, onApply, initialS
 
     useEffect(() => {
         if (isVisible) {
-            // 1. Extrair apenas os valores (Português) do teu ficheiro de traduções
+            // extrair apenas os valores (Português) do ficheiro de traduções
             const allValues = Object.values(TEMPERAMENT_TRANSLATIONS);
 
-            // 2. Remover duplicados e ordenar
+            // remover duplicados e ordenar
             const uniqueSorted = [...new Set(allValues)].sort((a, b) => a.localeCompare(b));
 
             setAvailableTemps(uniqueSorted);
             setSelected(initialSelected);
         }
 
-        // CORREÇÃO AQUI EM BAIXO: Adicionei 'initialSelected' à lista 👇
+
     }, [isVisible, initialSelected]);
 
     const toggleSelection = (temp) => {
@@ -36,7 +36,7 @@ export default function TemperamentModal({ isVisible, onClose, onApply, initialS
         onClose();
     };
 
-    // Filtragem local
+    // filtragem local
     const filteredList = availableTemps.filter(t =>
         t.toLowerCase().includes(searchText.toLowerCase())
     );

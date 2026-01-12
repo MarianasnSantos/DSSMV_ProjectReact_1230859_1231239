@@ -5,7 +5,7 @@ const BreedSearchModal = ({ isVisible, onClose, onSelect, allBreeds, selectedBre
     const [searchText, setSearchText] = useState('');
 
     const filteredBreeds = useMemo(() => {
-        // ⭐️ CORREÇÃO: Garante que allBreeds é um array antes de filtrar
+        // Garante que allBreeds é um array antes de filtrar
         const safeBreeds = Array.isArray(allBreeds) ? allBreeds : [];
 
         // Filtra opções de sistema (como 'Todos') que não fazem sentido no cadastro
@@ -22,7 +22,7 @@ const BreedSearchModal = ({ isVisible, onClose, onSelect, allBreeds, selectedBre
         return breedList.filter(breed =>
             breed?.toLowerCase().includes(searchText.toLowerCase())
         );
-    }, [searchText, allBreeds]);
+    }, [searchText, allBreeds,showAllOption]);
 
     return (
         <Modal animationType="slide" visible={isVisible} onRequestClose={onClose}>

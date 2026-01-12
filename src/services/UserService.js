@@ -3,7 +3,7 @@
 import { API_KEY, BASE_URL, DATABASE_NAME } from './ApiConfig';
 import { User } from '../model/User';
 
-// URL base para a coleção de utilizadores
+
 const RESTDB_USERS_URL = `${BASE_URL}/${DATABASE_NAME}`;
 
 export async function updateUserFavorites(userId, newFavoritesArray) {
@@ -11,17 +11,16 @@ export async function updateUserFavorites(userId, newFavoritesArray) {
         throw new Error("ID de utilizador necessário para atualizar favoritos.");
     }
 
-    // Constrói a URL para o recurso específico do utilizador
     const fullUrl = `${RESTDB_USERS_URL}/${userId}`;
 
     try {
         const response = await fetch(fullUrl, {
-            method: 'PATCH', // Usamos PATCH para atualizar apenas o campo 'favorites'
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
                 'x-apikey': API_KEY,
             },
-            body: JSON.stringify({ favorites: newFavoritesArray }), // Envia apenas o array de favoritos
+            body: JSON.stringify({ favorites: newFavoritesArray }), // envia apenas o array de favoritos
         });
 
         if (!response.ok) {
@@ -32,7 +31,6 @@ export async function updateUserFavorites(userId, newFavoritesArray) {
 
         const updatedUser = await response.json();
 
-        // Retorna o objeto completo do utilizador atualizado
         return updatedUser;
 
     } catch (error) {

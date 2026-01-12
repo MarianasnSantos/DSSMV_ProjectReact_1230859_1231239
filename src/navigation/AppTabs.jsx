@@ -15,9 +15,8 @@ export default function AppTabs() {
     return (
         <Tab.Navigator
             screenOptions={{
-                // Desativa o cabeçalho para usar o layout customizado nas telas
                 headerShown: false,
-                tabBarActiveTintColor: '#e91e63', // Cor do ícone ativo (Ex: Vermelho do PetMatch)
+                tabBarActiveTintColor: '#e91e63',
             }}
         >
             <Tab.Screen
@@ -25,7 +24,7 @@ export default function AppTabs() {
                 component={AnimalsFeedScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
-                        // Ícone de patinha para o feed principal
+
                         <Ionicons name="paw" size={size} color={color} />
                     )
                 }}
@@ -35,7 +34,7 @@ export default function AppTabs() {
                 component={ExploreScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
-                        // Ícone de busca
+                        // icone de busca
                         <Ionicons name="search" size={size} color={color} />
                     )
                 }}
@@ -45,7 +44,7 @@ export default function AppTabs() {
                 component={FavoriteScreen}
                 options={{
                     tabBarIcon: ({ color, size }) => (
-                        // Ícone de coração para os favoritos (pets curtidos)
+                        // icone de coração para os favoritos
                         <Ionicons name="heart" size={size} color={color} />
                     )
                 }}

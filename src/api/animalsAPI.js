@@ -11,15 +11,15 @@ export async function getAnimals() {
             }
         });
 
-        // 1. Verificar se a resposta foi sucesso (Código 200-299)
+        // verificar se a resposta foi sucesso (Código 200-299)
         if (!response.ok) {
             console.error("Erro RestDB GET:", response.status, await response.text());
-            return []; // Devolve lista vazia para não crashar o Feed
+            return []; // devolve lista vazia para não crashar o feed
         }
 
         const data = await response.json();
 
-        // 2. Garantir que devolvemos sempre um Array, mesmo que a API falhe
+        // garantir que devolvemos sempre um Array, mesmo que a API falhe
         if (Array.isArray(data)) {
             return data;
         } else {

@@ -39,7 +39,7 @@ const loadState = async () => {
 
         const storedData = JSON.parse(serializedState);
 
-        // Aplica o estado carregado (login e favoritos)
+        // aplica o estado carregado (login e favoritos)
         _state = {
             ..._state,
             user: storedData.user || null,
@@ -78,9 +78,9 @@ class AuthStore extends EventEmitter {
     }
 }
 
-const store = new AuthStore(); // A variável 'store' agora é definida
+const store = new AuthStore();
 
-// --- Registro no Dispatcher (Lógica de Negócio de Autenticação) ---
+
 AppDispatcher.register((action) => {
     switch (action.type) {
 

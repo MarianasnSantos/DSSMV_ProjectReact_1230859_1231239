@@ -21,17 +21,17 @@ export async function getBreedInfo(breedName) {
 export async function createAnimal(animalData, apiKey) {
     // animalData: { name, breed, age, photo, ... }
 
-    // 1️⃣ Buscar temperamento e vida da raça
+    // Buscar temperamento e vida da raça
     const breedInfo = await getBreedInfo(animalData.breed);
 
-    // 2️⃣ Criar o objeto completo
+    // Criar o objeto completo
     const fullAnimal = {
         ...animalData,
         temperament: animalData.temperament || breedInfo.temperament,
         life_span: animalData.life_span || breedInfo.life_span
     };
 
-    // 3️⃣ Enviar para RestDB
+    // Enviar para RestDB
     const res = await fetch('https://petmatch-afab.restdb.io/rest/animals', {
         method: 'POST',
         headers: {
