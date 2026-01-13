@@ -258,11 +258,33 @@ export default function AddAnimalScreen({ navigation, route }) {
                 onSelect={(b) => {
                     setBreed(b);
                     setIsBreedModalVisible(false);
+
                     if (b !== "Sem Raça") {
                         setIsFetchingTemperament(true);
-                        fetch(`${DOG_API_URL}/breeds/search?q=${b}`).then(r => r.json()).then(d => {
-                            if(d[0]?.temperament) setTemperament(d[0].temperament);
-                        }).finally(() => setIsFetchingTemperament(false));
+
+
+                        fetch(`${DOG_API_URL}/breeds/search?q=${b}`, {
+                            headers: {
+                                'x-api-key': "live_HFWDmoFTpPNthL3vABnNtUWxJ4zMGzg1qLRfa9Xt8hjTAkrc2DhrTkj9kUL5c0vz"
+                            }
+                        })
+                            .then(r => {
+                                if (!r.ok) throw new Error("Erro API: " + r.status);
+                                return r.json();
+                            })
+                            .then(d => {
+
+                                if (d && d.length > 0 && d[0].temperament) {
+                                    setTemperament(d[0].temperament);
+                                } else {
+                                    console.log("Temperamento não encontrado para esta raça.");
+                                }
+                            })
+                            .catch(err => {
+                                console.error("Erro ao buscar temperamento:", err);
+
+                            })
+                            .finally(() => setIsFetchingTemperament(false));
                     }
                 }}
                 onClose={() => setIsBreedModalVisible(false)}
