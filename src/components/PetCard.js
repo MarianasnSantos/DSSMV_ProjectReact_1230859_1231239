@@ -18,6 +18,7 @@ const PetCard = ({
                      formatDate
                  }) => {
 
+    //buascar foto do animal
     const photo = item.photoUrl || item.image?.url || "https://placehold.co/300x200";
     const translatedTemperament = translateTemperament(item.temperament);
 
@@ -30,6 +31,9 @@ const PetCard = ({
     const dataPublicacao = item.createdAt ? formatDate(item.createdAt) : "Recente";
     const autor = item.addedBy || "Utilizador";
 
+
+
+    //APAGAR OU EDITAR DONO
     return (
         <View style={[styles.card, item.adopted && styles.cardAdopted]}>
             <View>

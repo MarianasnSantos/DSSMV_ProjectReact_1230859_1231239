@@ -18,6 +18,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+
+
+//CALCULO DISTANCIA
 const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
     if (!lat1 || !lon1 || !lat2 || !lon2) return 99999;
     const R = 6371; const dLat = (lat2 - lat1) * (Math.PI / 180); const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -29,6 +32,8 @@ function usePetStoreState() {
     const [state, setState] = useState(PetStore.getState());
     useEffect(() => {
         const handleChange = () => setState(PetStore.getState());
+
+        //atualizar lista
         PetStore.addChangeListener(handleChange);
         return () => { if (PetStore.removeChangeListener) { PetStore.removeChangeListener(handleChange); } else { PetStore.removeListener(handleChange); } };
     }, []);
@@ -53,6 +58,8 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     const [loadingGPS, setLoadingGPS] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
+
+    //ver caes com o mesmo temperamento
     useEffect(() => {
         PetActions.loadAnimals();
         if (route.params?.smartTemperament) {
@@ -62,6 +69,8 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         }
     }, [route.params, navigation]);
 
+
+    //alterar botao favorito
     useEffect(() => {
         setOptimisticChanges(prev => { const next = { ...prev }; Object.keys(prev).forEach(id => { if (favorites.includes(id) === prev[id]) delete next[id]; }); return next; });
     }, [favorites]);
@@ -79,23 +88,34 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
     const toggleFilters = () => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setShowFilters(!showFilters); };
 
+
+
     const getFilteredAnimals = () => {
         let filteredList = [...animals];
         filteredList.sort((a, b) => { const dateA = new Date(a.createdAt || 0); const dateB = new Date(b.createdAt || 0); return dateB - dateA; });
         filteredList = filteredList.filter(pet => { const isAdopted = pet.adopted === true || pet.adopted === "true"; return showAdopted ? isAdopted : !isAdopted; });
         if (smartMatchTarget) {
+
+            //confirmar minúsculas
+
             const targetWords = smartMatchTarget.split(',').map(t => t.trim().toLowerCase());
             filteredList = filteredList.filter(animal => { if (!animal.temperament) return false; const animalWords = animal.temperament.split(',').map(t => t.trim().toLowerCase()); let matches = 0; targetWords.forEach(target => { if (animalWords.some(w => w.includes(target) || target.includes(w))) matches++; }); return matches >= 2; });
             return filteredList;
         }
+
+        //filtrar por RAÇA
         if (filters.breed && filters.breed !== 'Todas' && filters.breed !== 'Todos') { if (filters.breed === 'Sem Raça') filteredList = filteredList.filter(a => !a.breed || a.breed.trim() === ''); else filteredList = filteredList.filter(a => (a.breed === filters.breed) || (a.name === filters.breed)); }
         const minAge = parseInt(filters.minAge); if (!isNaN(minAge) && minAge > 0) { filteredList = filteredList.filter(a => (a.age ? parseInt(a.age) : 0) >= minAge); }
         if (selectedTemps.length > 0) { filteredList = filteredList.filter(animal => { const animalTempPT = translateTemperament(animal.temperament).toLowerCase(); return selectedTemps.some(selected => animalTempPT.includes(selected.toLowerCase())); }); }
+
+        //filtrar por LOCALIZAÇÃO
         if (locationSearch.trim()) { const loc = locationSearch.toLowerCase().trim(); filteredList = filteredList.filter(a => a.location && a.location.toLowerCase().includes(loc)); }
         if (sortByDistance && myLocation) { filteredList.sort((a, b) => { if (!a.lat || !a.lng) return 1; if (!b.lat || !b.lng) return -1; const distA = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, a.lat, a.lng); const distB = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, b.lat, b.lng); return distA - distB; }); }
         return filteredList;
     };
 
+
+    //alterar favoritos
     const handleToggleFavorite = (id) => { const idString = id.toString(); const isCurrentlyInStore = favorites.includes(idString); const isOptimistic = optimisticChanges[idString]; const isFavBeforeClick = isOptimistic !== undefined ? isOptimistic : isCurrentlyInStore; setOptimisticChanges(prev => ({ ...prev, [idString]: !isFavBeforeClick })); PetActions.toggleFavorite(id); };
     const handleAdoptCall = (contactNumber) => { if (!contactNumber) return Alert.alert("Aviso", "Sem contacto."); Linking.openURL(`tel:${contactNumber.replace(/[^0-9]/g, '')}`); };
     const handleToggleStatus = async (animal) => { const idAnimal = animal._id || animal.id; const estadoAtual = animal.adopted === true || animal.adopted === "true"; const novoEstado = !estadoAtual; try { await PetActions.updateAnimal({ id: idAnimal, _id: idAnimal, adopted: novoEstado }); Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado! 🏠" : "Disponível! 🐶"); } catch (error) { console.log("Erro ao atualizar status:", error); Alert.alert("Erro", "Não foi possível atualizar o estado."); } };
@@ -103,6 +123,8 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
     if (loading && !refreshing) return <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />;
 
+
+    //FILTROS
     return (
         <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
             <View style={styles.header}>
@@ -126,9 +148,11 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                     </View>
                 )}
 
+
                 {showFilters && !smartMatchTarget && (
                     <View style={styles.advancedFiltersContainer}>
                         <View style={styles.filterRow}>
+
                             <TouchableOpacity style={styles.breedSelector} onPress={() => setIsBreedModalVisible(true)}>
                                 <Text style={styles.breedText} numberOfLines={1}>{filters.breed && filters.breed !== 'Todos' ? filters.breed : '🐕 Todas as Raças'}</Text>
                             </TouchableOpacity>
@@ -150,6 +174,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                     </View>
                 )}
             </View>
+
 
             <FlatList
                 data={getFilteredAnimals()} extraData={[animals, showAdopted]} keyExtractor={(item) => String(item.id || item._id)}

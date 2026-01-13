@@ -91,7 +91,7 @@ export default function ExploreScreen({ navigation }) {
 
     const getOrderedPosts = () => {
         if (!posts || posts.length === 0) return [];
-        // Ordena pelo campo createdAt que criaste no ecrã de publicação
+        // Ordena pelo campo createdAt criado no ecrã de publicação
         return [...posts].sort((a, b) => {
             const dateA = new Date(a.createdAt || 0);
             const dateB = new Date(b.createdAt || 0);
@@ -162,6 +162,8 @@ export default function ExploreScreen({ navigation }) {
         </TouchableOpacity>
     );
 
+
+    //APAGAR POST SE FOR O AUTOR
     const renderCommunityPost = ({ item }) => {
         const isOwner = String(user?._id || user?.id) === String(item.authorId);
         return (
@@ -174,6 +176,13 @@ export default function ExploreScreen({ navigation }) {
                             <Text style={styles.commDate}>{formatCommentDate(item.date)}</Text>
                         </View>
                     </View>
+
+
+
+                    {
+                        /* Botões de editar/apagar apenas se for o meu post */
+                    }
+
                     {isOwner && <TouchableOpacity onPress={() => handleDeletePost(item._id)}><Text style={{ fontSize: 20, color: theme.colors.primary }}>🗑️</Text></TouchableOpacity>}
                 </View>
                 <Image source={{ uri: item.image }} style={styles.commImage} resizeMode="cover" />
@@ -218,6 +227,12 @@ export default function ExploreScreen({ navigation }) {
                     <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}><Text style={styles.fabText}>+</Text></TouchableOpacity>
                 </>
             )}
+
+
+            {
+                /* Botões de editar/apagar apenas se for o meu comentario */
+            }
+
             <Modal animationType="slide" transparent={true} visible={modalVisible}>
                 <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -265,7 +280,7 @@ const styles = StyleSheet.create({
     tabText: { fontSize: 15, fontWeight: 'bold', color: theme.colors.textSecondary },
     tabTextActive: { color: theme.colors.primary },
 
-    // 👇 MUDANÇA AQUI: Removido borderWidth e borderColor
+
     cardBreed: {
         backgroundColor: theme.colors.card,
         margin: 15, borderRadius: 16, overflow: "hidden",

@@ -100,6 +100,10 @@ AppDispatcher.register((action) => {
             saveState();
             break;
 
+
+            // GUARDAR ANIMAIS FAVORITOS DO USER
+
+
         case 'FAVORITE_SUCCESS':
             const animalId = action.payload.animalId;
             let newFavorites = [..._state.favorites];

@@ -23,7 +23,7 @@ export async function authenticateUser(username) {
             throw new Error(`Erro HTTP: ${response.status}. Detalhes: ${await response.text()}`);
         }
 
-        // Remove a tipagem no 'await response.json()'
+
         const data = await response.json();
 
         if (data.length === 1) {
@@ -69,11 +69,11 @@ export async function registerUser(username) {
             throw new Error(`Falha no registo. Detalhe: ${errorData.message || response.status}`);
         }
 
-        // Remove a tipagem
+
         const registeredUser = await response.json();
         return registeredUser;
 
-    } catch (error) { // Remove a tipagem ': any'
+    } catch (error) {
         console.error("Erro ao tentar registar:", error);
         throw error;
     }

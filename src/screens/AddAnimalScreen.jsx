@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
-// 1. IMPORTAR AS BIBLIOTECAS DE LOCALIZAÇÃO
+//  IMPORTAR AS BIBLIOTECAS DE LOCALIZAÇÃO
 import Geolocation from 'react-native-geolocation-service';
 import Geocoder from 'react-native-geocoding';
 
@@ -22,6 +22,9 @@ import { theme } from "../styles/theme";
 const DOG_API_URL = "https://api.thedogapi.com/v1";
 
 export default function AddAnimalScreen({ navigation, route }) {
+
+
+    //VERIFICAR SE RECEBEU ANIMAL PARA EDITAR
     const { animalToEdit } = route.params || {};
     const isEditMode = !!animalToEdit;
     const animalId = animalToEdit?.id;
@@ -54,7 +57,7 @@ export default function AddAnimalScreen({ navigation, route }) {
     useEffect(() => {
         navigation.setOptions({ title: isEditMode ? 'Editar Animal' : 'Novo Animal' });
 
-        // INICIALIZAR O GEOCODER (Substitui pela tua chave se necessário)
+        // INICIALIZAR O GEOCODER
         Geocoder.init("AIzaSyBMWu-iiiQz4mhftlcYzFe84Ecl8IshLoU", { language : "pt" });
 
         const onAuthChange = () => setUser(AuthStore.getState().user);
