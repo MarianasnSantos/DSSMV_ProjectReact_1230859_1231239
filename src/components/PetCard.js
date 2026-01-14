@@ -18,7 +18,7 @@ const PetCard = ({
                      formatDate
                  }) => {
 
-    //buascar foto do animal
+    //buscar foto do animal
     const photo = item.photoUrl || item.image?.url || "https://placehold.co/300x200";
     const translatedTemperament = translateTemperament(item.temperament);
 
@@ -33,7 +33,7 @@ const PetCard = ({
 
 
 
-    //APAGAR OU EDITAR DONO
+    //APAGAR  EDITAR ADOTADO (DONO)
     return (
         <View style={[styles.card, item.adopted && styles.cardAdopted]}>
             <View>
@@ -54,6 +54,9 @@ const PetCard = ({
                     <Text style={styles.name}>
                         {item.name} {item.adopted && "🔒"}
                     </Text>
+
+
+                    {/* adicionar/remover favorito */}
                     {isLoggedIn && (
                         <TouchableOpacity onPress={() => onFavorite(item.id)}>
                             <Image

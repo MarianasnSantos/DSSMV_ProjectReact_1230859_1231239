@@ -18,7 +18,7 @@ import { PetActions } from "../actions/PetActions";
 // --- Utilitários ---
 import { translateTemperament, translateLifeSpan } from "../utils/translations";
 
-// Ícone (Garante que o caminho está correto no teu projeto)
+// Ícone
 const STAR_FILLED = require('../assets/favorito_preenchido.jpg');
 
 export default function FavoritesScreen({ navigation }) {
@@ -33,7 +33,7 @@ export default function FavoritesScreen({ navigation }) {
     const [breedsLoading, setBreedsLoading] = useState(false);
     const [activeFilter, setActiveFilter] = useState('adoption');
 
-    // --- Efeito: Ouvir os Stores (Flux) ---
+    // --- Efeito: Ouvir os Stores ---
     useEffect(() => {
         const onPetChange = () => {
             setAnimals(PetStore.getState().animals);

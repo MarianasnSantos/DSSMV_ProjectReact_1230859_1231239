@@ -15,9 +15,9 @@ export const theme = {
         textSecondary: '#8E6B77',// Rosado escuro
         textPlaceholder: '#BCAAA4',
 
-        // Bordas e Sombras (O SEGREDO PARA TIRAR O PRETO)
+        // Bordas e Sombras
         border: '#FFB6C1',       // Borda Rosa Claro
-        shadow: '#FF4FA7',       // Sombra Rosa (em vez de preta)
+        shadow: '#FF4FA7',       // Sombra Rosa
 
         inputBackground: '#FFFFFF',
         white: '#FFFFFF'

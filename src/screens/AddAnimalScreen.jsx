@@ -72,7 +72,7 @@ export default function AddAnimalScreen({ navigation, route }) {
         };
     }, [isEditMode, navigation]);
 
-    // --- LÓGICA DE LOCALIZAÇÃO (GPS + GOOGLE API) ---
+    // LOCALIZAÇÃO (GPS + GOOGLE API)
     const obterLocalizacao = async () => {
         setLoadingLocation(true);
         try {
@@ -138,6 +138,9 @@ export default function AddAnimalScreen({ navigation, route }) {
             const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
             if (granted !== PermissionsAndroid.RESULTS.GRANTED) return Alert.alert("Erro", "Sem câmara.");
         }
+
+
+        //transformar em base 64
         launchCamera({ mediaType: 'photo', quality: 0.5, includeBase64: true }, (res) => {
             if (res.assets) setPhoto(`data:image/jpeg;base64,${res.assets[0].base64}`);
         });
@@ -151,6 +154,8 @@ export default function AddAnimalScreen({ navigation, route }) {
 
     // --- Submissão ---
     const handleSubmit = async () => {
+
+        //verificar os campos todos
         if (!name || !contactNumber || !location) return Alert.alert("Erro", "Nome, Contacto e Localização são obrigatórios.");
 
         setIsSaving(true);
@@ -161,6 +166,10 @@ export default function AddAnimalScreen({ navigation, route }) {
             lng: coords.lng,
             addedBy: user?.username || "Utilizador",
             addedById: user?._id || user?.id,
+
+
+            //decide criar ou editar
+
             ...(isEditMode ? { updatedAt: new Date().toISOString() } : { createdAt: new Date().toISOString() })
         };
 

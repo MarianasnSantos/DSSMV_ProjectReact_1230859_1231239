@@ -16,11 +16,11 @@ const RESTDB_USERS_URL = `${RESTDB_BASE_URL}/appusers`;
 
 // ----------------------------
 // Funções auxiliares (API)
-// ----------------------------
+
 
 async function getBreedInfo(breedName) {
     try {
-        // 👇 Usa URL e Chave do ficheiro de configuração
+        // Usa URL e Chave do ficheiro de configuração
         const res = await fetch(`${DOG_API_URL}/breeds`, {
             headers: { 'x-api-key': DOG_API_KEY }
         });
@@ -83,6 +83,9 @@ async function deleteAnimalFromRestDB(animalId) {
     return res.ok;
 }
 
+
+
+//atulizar animal
 async function putAnimalToRestDB(animalData) {
     const res = await fetch(`${RESTDB_URL}/${animalData.id}`, {
         method: 'PATCH',
@@ -94,7 +97,7 @@ async function putAnimalToRestDB(animalData) {
     return { ...updated, id: String(updated._id) };
 }
 
-// ⭐️ Função para salvar favoritos no perfil do utilizador na Nuvem
+// atualizar lista favoritos
 async function syncUserFavoritesToRestDB(userId, favoritesArray) {
     try {
         await fetch(`${RESTDB_USERS_URL}/${userId}`, {
@@ -111,10 +114,13 @@ async function syncUserFavoritesToRestDB(userId, favoritesArray) {
 }
 
 // ===============================================================
-// AÇÕES (Flux)
+// AÇÕES
 // ===============================================================
 export class PetActions {
 
+
+
+    //carregar lista animais
     static async loadAnimals() {
         AppDispatcher.dispatch({ type: 'LOAD_ANIMALS_START' });
         try {
@@ -197,7 +203,7 @@ export class PetActions {
         }
     }
 
-    // ⭐️ Favoritos sincronizados com Memória, Disco e Nuvem
+    //  Favoritos sincronizados com Memória, Disco e Nuvem
     static toggleFavorite(animalId) {
         const idString = String(animalId);
 
@@ -207,7 +213,7 @@ export class PetActions {
             payload: { animalId: idString }
         });
 
-        // 2. Sincronizar com RestDB para persistência entre dispositivos
+        // 2. Sincronizar com RestDB
         const { user, favorites } = AuthStore.getState();
         const userId = user?._id || user?.id;
 

@@ -52,6 +52,8 @@ const App = () => {
         );
     }
 
+
+    //DECIDE SE VAI PARA O LOGIN OU MAIN
     return (
         <SafeAreaProvider>
             {/*

@@ -59,7 +59,7 @@ export default function AnimalsFeedScreen({ navigation, route }) {
     const [showFilters, setShowFilters] = useState(false);
 
 
-    //ver caes com o mesmo temperamento
+    //logica filtros
     useEffect(() => {
         PetActions.loadAnimals();
         if (route.params?.smartTemperament) {
@@ -75,6 +75,8 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         setOptimisticChanges(prev => { const next = { ...prev }; Object.keys(prev).forEach(id => { if (favorites.includes(id) === prev[id]) delete next[id]; }); return next; });
     }, [favorites]);
 
+
+    //atualizar ecra
     const onRefresh = useCallback(async () => { setRefreshing(true); await PetActions.loadAnimals(); setRefreshing(false); }, []);
 
     const toggleDistanceSort = async () => {
@@ -94,31 +96,62 @@ export default function AnimalsFeedScreen({ navigation, route }) {
         let filteredList = [...animals];
         filteredList.sort((a, b) => { const dateA = new Date(a.createdAt || 0); const dateB = new Date(b.createdAt || 0); return dateB - dateA; });
         filteredList = filteredList.filter(pet => { const isAdopted = pet.adopted === true || pet.adopted === "true"; return showAdopted ? isAdopted : !isAdopted; });
+
         if (smartMatchTarget) {
 
             //confirmar minúsculas
 
+
+        //filtro temperamento
             const targetWords = smartMatchTarget.split(',').map(t => t.trim().toLowerCase());
-            filteredList = filteredList.filter(animal => { if (!animal.temperament) return false; const animalWords = animal.temperament.split(',').map(t => t.trim().toLowerCase()); let matches = 0; targetWords.forEach(target => { if (animalWords.some(w => w.includes(target) || target.includes(w))) matches++; }); return matches >= 2; });
+            filteredList = filteredList.filter(animal => { if (!animal.temperament) return false;
+                const animalWords = animal.temperament.split(',').map(t => t.trim().toLowerCase());
+                let matches = 0; targetWords.forEach(target => {
+                    if (animalWords.some(w => w.includes(target) || target.includes(w))) matches++; });
+                return matches >= 2; });
             return filteredList;
         }
 
         //filtrar por RAÇA
         if (filters.breed && filters.breed !== 'Todas' && filters.breed !== 'Todos') { if (filters.breed === 'Sem Raça') filteredList = filteredList.filter(a => !a.breed || a.breed.trim() === ''); else filteredList = filteredList.filter(a => (a.breed === filters.breed) || (a.name === filters.breed)); }
-        const minAge = parseInt(filters.minAge); if (!isNaN(minAge) && minAge > 0) { filteredList = filteredList.filter(a => (a.age ? parseInt(a.age) : 0) >= minAge); }
-        if (selectedTemps.length > 0) { filteredList = filteredList.filter(animal => { const animalTempPT = translateTemperament(animal.temperament).toLowerCase(); return selectedTemps.some(selected => animalTempPT.includes(selected.toLowerCase())); }); }
+        const minAge = parseInt(filters.minAge);
+
+        //filtrar por idade
+        if (!isNaN(minAge) && minAge > 0) { filteredList = filteredList.filter(a => (a.age ? parseInt(a.age) : 0) >= minAge); }
+
+        //filtrar por temperamento
+        if (selectedTemps.length > 0) { filteredList = filteredList.filter(animal => {
+            const animalTempPT = translateTemperament(animal.temperament).toLowerCase();
+            return selectedTemps.some(selected => animalTempPT.includes(selected.toLowerCase())); }); }
 
         //filtrar por LOCALIZAÇÃO
         if (locationSearch.trim()) { const loc = locationSearch.toLowerCase().trim(); filteredList = filteredList.filter(a => a.location && a.location.toLowerCase().includes(loc)); }
-        if (sortByDistance && myLocation) { filteredList.sort((a, b) => { if (!a.lat || !a.lng) return 1; if (!b.lat || !b.lng) return -1; const distA = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, a.lat, a.lng); const distB = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, b.lat, b.lng); return distA - distB; }); }
+        if (sortByDistance && myLocation) { filteredList.sort((a, b) => { if (!a.lat || !a.lng) return 1;
+            if (!b.lat || !b.lng) return -1;
+            const distA = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, a.lat, a.lng);
+            const distB = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, b.lat, b.lng);
+            return distA - distB; }); }
         return filteredList;
     };
 
 
     //alterar favoritos
-    const handleToggleFavorite = (id) => { const idString = id.toString(); const isCurrentlyInStore = favorites.includes(idString); const isOptimistic = optimisticChanges[idString]; const isFavBeforeClick = isOptimistic !== undefined ? isOptimistic : isCurrentlyInStore; setOptimisticChanges(prev => ({ ...prev, [idString]: !isFavBeforeClick })); PetActions.toggleFavorite(id); };
-    const handleAdoptCall = (contactNumber) => { if (!contactNumber) return Alert.alert("Aviso", "Sem contacto."); Linking.openURL(`tel:${contactNumber.replace(/[^0-9]/g, '')}`); };
-    const handleToggleStatus = async (animal) => { const idAnimal = animal._id || animal.id; const estadoAtual = animal.adopted === true || animal.adopted === "true"; const novoEstado = !estadoAtual; try { await PetActions.updateAnimal({ id: idAnimal, _id: idAnimal, adopted: novoEstado }); Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado! 🏠" : "Disponível! 🐶"); } catch (error) { console.log("Erro ao atualizar status:", error); Alert.alert("Erro", "Não foi possível atualizar o estado."); } };
+    const handleToggleFavorite = (id) => { const idString = id.toString();
+        const isCurrentlyInStore = favorites.includes(idString);
+        const isOptimistic = optimisticChanges[idString]; const isFavBeforeClick = isOptimistic !== undefined ? isOptimistic : isCurrentlyInStore;
+        setOptimisticChanges(prev => ({ ...prev, [idString]: !isFavBeforeClick })); PetActions.toggleFavorite(id); };
+
+
+    //ligar para adotar
+    const handleAdoptCall = (contactNumber) => { if (!contactNumber) return Alert.alert("Aviso", "Sem contacto.");
+        Linking.openURL(`tel:${contactNumber.replace(/[^0-9]/g, '')}`); };
+
+    //marcar como adotado/disponivel
+    const handleToggleStatus = async (animal) => { const idAnimal = animal._id || animal.id; const estadoAtual = animal.adopted === true || animal.adopted === "true"; const novoEstado = !estadoAtual; try {
+        await PetActions.updateAnimal({ id: idAnimal, _id: idAnimal, adopted: novoEstado });
+        Alert.alert("Sucesso", novoEstado ? "Marcado como Adotado! 🏠" : "Disponível! 🐶"); } catch (error) { console.log("Erro ao atualizar status:", error); Alert.alert("Erro", "Não foi possível atualizar o estado."); } };
+
+
     const formatDate = (isoString) => { if (!isoString) return ''; const date = new Date(isoString); return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`; };
 
     if (loading && !refreshing) return <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />;
@@ -170,7 +203,8 @@ export default function AnimalsFeedScreen({ navigation, route }) {
                 {smartMatchTarget && (
                     <View style={styles.smartFilterBadge}>
                         <Text style={styles.smartFilterText}>✨ Modo Compatibilidade</Text>
-                        <TouchableOpacity onPress={() => {setSmartMatchTarget(null); PetActions.loadAnimals();}} style={styles.clearButton}><Text style={styles.clearButtonText}>Limpar ✕</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {setSmartMatchTarget(null);
+                            PetActions.loadAnimals();}} style={styles.clearButton}><Text style={styles.clearButtonText}>Limpar ✕</Text></TouchableOpacity>
                     </View>
                 )}
             </View>
@@ -178,15 +212,25 @@ export default function AnimalsFeedScreen({ navigation, route }) {
 
             <FlatList
                 data={getFilteredAnimals()} extraData={[animals, showAdopted]} keyExtractor={(item) => String(item.id || item._id)}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />}
+                refreshControl={<RefreshControl
+                    refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />}
                 contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 10 }}
                 renderItem={({ item }) => {
                     const idString = String(item.id || item._id); const isCurrentlyInStore = favorites.includes(idString); const isFav = optimisticChanges[idString] !== undefined ? optimisticChanges[idString] : isCurrentlyInStore;
+
+
+
                     let distanceText = ""; if (sortByDistance && myLocation && item.lat && item.lng) { const dist = getDistanceFromLatLonInKm(myLocation.lat, myLocation.lng, item.lat, item.lng); distanceText = `${dist.toFixed(1)} km`; }
                     return (
                         <View style={{position: 'relative'}}>
                             {distanceText !== "" && <View style={styles.distanceBadge}><Text style={styles.distanceText}>📍 {distanceText}</Text></View>}
-                            <PetCard item={item} isFav={isFav} isLoggedIn={isLoggedIn} userId={userId} onFavorite={handleToggleFavorite} onAdopt={handleAdoptCall} onToggleStatus={handleToggleStatus} onEdit={(animal) => navigation.navigate('AddAnimal', { animalToEdit: animal })} onDelete={(id, owner) => Alert.alert("Apagar", "Confirmas?", [{ text: "Não" }, { text: "Sim", onPress: () => PetActions.deleteAnimal(id, owner) }])} formatDate={formatDate} />
+                            <PetCard item={item} isFav={isFav} isLoggedIn={isLoggedIn} userId={userId}
+                                     onFavorite={handleToggleFavorite}
+                                     onAdopt={handleAdoptCall}
+                                     onToggleStatus={handleToggleStatus}
+                                     onEdit={(animal) => navigation.navigate('AddAnimal', { animalToEdit: animal })}
+                                     onDelete={(id, owner) => Alert.alert("Apagar", "Confirmas?", [{ text: "Não" }, { text: "Sim",
+                                         onPress: () => PetActions.deleteAnimal(id, owner) }])} formatDate={formatDate} />
                         </View>
                     );
                 }}

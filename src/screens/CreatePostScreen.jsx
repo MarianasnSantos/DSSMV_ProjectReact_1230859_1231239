@@ -44,6 +44,8 @@ export default function CreatePostScreen({ navigation }) {
 
         setLoading(true);
 
+
+        //criar novo post de partilha comentarios a 0
         const newPost = {
             author: user.username || user.name || "Utilizador",
             authorId: user._id || user.id,

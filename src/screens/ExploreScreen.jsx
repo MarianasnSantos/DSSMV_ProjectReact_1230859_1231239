@@ -40,6 +40,8 @@ export default function ExploreScreen({ navigation }) {
         return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
     };
 
+
+    //aba comunidade / raças
     useEffect(() => {
         const onAuthChange = () => {
             const state = AuthStore.getState();
@@ -149,7 +151,8 @@ export default function ExploreScreen({ navigation }) {
     };
 
     const renderBreedItem = ({ item }) => (
-        <TouchableOpacity style={styles.cardBreed} onPress={() => navigation.navigate('AnimalsFeed', { smartTemperament: item.temperament || "" })} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.cardBreed}
+                  onPress={() => navigation.navigate('AnimalsFeed', { smartTemperament: item.temperament || "" })} activeOpacity={0.9}>
             <Image source={{ uri: item.imageUrl }} style={styles.imageBreed} />
             <View style={styles.textContainer}>
                 <View style={styles.headerContainer}>
@@ -209,7 +212,8 @@ export default function ExploreScreen({ navigation }) {
                 </TouchableOpacity>
             </View>
             {activeTab === 'RACAS' ? (
-                <FlatList data={breeds} keyExtractor={(item) => item.id.toString()} renderItem={renderBreedItem} onRefresh={handleRefreshBreeds} refreshing={isRefreshingBreeds} onEndReached={handleLoadMoreBreeds}
+                <FlatList data={breeds} keyExtractor={(item) => item.id.toString()} renderItem={renderBreedItem} onRefresh={handleRefreshBreeds} refreshing={isRefreshingBreeds}
+                          onEndReached={handleLoadMoreBreeds}
                           ListEmptyComponent={loadingBreeds && <ActivityIndicator style={styles.centerLoader} color={theme.colors.primary} />}
                           ListFooterComponent={loadingMoreBreeds && <ActivityIndicator style={{padding: 20}} color={theme.colors.primary} />}
                 />
@@ -224,7 +228,11 @@ export default function ExploreScreen({ navigation }) {
                         extraData={posts}
                               ListEmptyComponent={loadingPosts ? <ActivityIndicator style={styles.centerLoader} color={theme.colors.primary} size="large" /> : <Text style={styles.emptyText}>Sem partilhas ainda.</Text>}
                     />
-                    <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}><Text style={styles.fabText}>+</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.fab}
+
+
+                                      onPress={() => navigation.navigate('CreatePost')}>
+                        <Text style={styles.fabText}>+</Text></TouchableOpacity>
                 </>
             )}
 
